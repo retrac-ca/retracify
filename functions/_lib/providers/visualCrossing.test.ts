@@ -6,6 +6,7 @@ import {
   normalizeVisualCrossing,
 } from './visualCrossing.ts';
 import { getLocalDateRange } from '../dates.ts';
+import { FORECAST_DAYS } from '../../../shared/config.ts';
 import {
   makeVisualCrossingPayload,
   TEST_NOW,
@@ -18,12 +19,12 @@ describe('getLocalDateRange', () => {
     const range = getLocalDateRange(
       'America/Moncton',
       new Date('2026-10-23T02:00:00Z'),
-      5,
+      FORECAST_DAYS,
     );
 
     expect(range).toEqual({
       start: '2026-10-22',
-      end: '2026-10-26',
+      end: '2026-10-28',
     });
   });
 
@@ -34,13 +35,13 @@ describe('getLocalDateRange', () => {
 });
 
 describe('buildForecastUrl', () => {
-  it('requests five local days in metric units', () => {
+  it('requests seven local days in metric units', () => {
     const url = new URL(
       buildForecastUrl(TEST_PLACE, 'test-key', TEST_NOW),
     );
 
     expect(url.pathname).toContain(
-      '/47.0461,-67.7418/2026-10-23/2026-10-27',
+      '/47.0461,-67.7418/2026-10-23/2026-10-29',
     );
     expect(url.searchParams.get('unitGroup')).toBe('metric');
     expect(url.searchParams.get('include')).toBe('current,days,hours');
@@ -75,7 +76,7 @@ describe('mapWeatherCondition', () => {
 });
 
 describe('normalizeVisualCrossing', () => {
-  it('normalizes current, 24 hourly, and five daily periods', () => {
+  it('normalizes current, 24 hourly, and seven daily periods', () => {
     const forecast = normalizeVisualCrossing(
       makeVisualCrossingPayload(),
       TEST_PLACE,
@@ -85,7 +86,7 @@ describe('normalizeVisualCrossing', () => {
     expect(forecast.timezone).toBe('America/Moncton');
     expect(forecast.timezoneOffsetSeconds).toBe(-10800);
     expect(forecast.fetchedAt).toBe('2026-10-23T20:30:00.000Z');
-    expect(forecast.daily).toHaveLength(5);
+    expect(forecast.daily).toHaveLength(FORECAST_DAYS);
     expect(forecast.hourly).toHaveLength(24);
     expect(forecast.units).toEqual({
       temperature: '°C',

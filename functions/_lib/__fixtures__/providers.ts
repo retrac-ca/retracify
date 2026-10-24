@@ -1,4 +1,5 @@
 import type { Place } from '../../../shared/types.ts';
+import { FORECAST_DAYS } from '../../../shared/config.ts';
 
 export const TEST_NOW = new Date('2026-10-23T20:30:00Z');
 
@@ -20,13 +21,16 @@ const CURRENT_EPOCH = Math.floor(
 const FIRST_HOUR_EPOCH = Math.floor(
   Date.parse('2026-10-23T20:00:00Z') / 1000,
 );
-const DATES = [
-  '2026-10-23',
-  '2026-10-24',
-  '2026-10-25',
-  '2026-10-26',
-  '2026-10-27',
-];
+const DATES = Array.from({ length: FORECAST_DAYS }, (_, index) =>
+  addDays('2026-10-23', index),
+);
+
+function addDays(date: string, offset: number): string {
+  const [year, month, day] = date.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day + offset))
+    .toISOString()
+    .slice(0, 10);
+}
 
 export function makeVisualCrossingPayload(): Record<string, unknown> {
   const hours = Array.from({ length: 24 }, (_, index) => {

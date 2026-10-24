@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ForecastResponse, SearchResponse } from '../../shared/types.ts';
+import { FORECAST_DAYS } from '../../shared/config.ts';
 import { handleForecast, handleSearch } from './handlers.ts';
 import { MemoryCache } from './cache.ts';
 import {
@@ -97,7 +98,7 @@ describe('handleForecast', () => {
     expect(first.status).toBe(200);
 
     const firstBody = (await first.json()) as ForecastResponse;
-    expect(firstBody.forecast.daily).toHaveLength(5);
+    expect(firstBody.forecast.daily).toHaveLength(FORECAST_DAYS);
     expect(firstBody.forecast.hourly).toHaveLength(24);
     expect(firstBody.forecast.current?.temperatureC).toBe(8.4);
 

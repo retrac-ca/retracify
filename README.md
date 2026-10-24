@@ -1,7 +1,7 @@
 # Retracify Weather
 
 A lightweight, mobile-friendly weather website with current conditions, hourly
-forecasts, a five-day forecast, and global city/town search.
+forecasts, a seven-day forecast, and global city/town search.
 
 The project is designed as a **static React frontend** with a small serverless
 API layer for provider credential protection, caching, and response
@@ -13,7 +13,7 @@ normalization. There is no database, account system, or persistent user data.
   wind, and precipitation probability.
 - Next 24 hours of weather with temperature, condition, precipitation
   probability, and wind.
-- Five-day forecast with daily high/low, condition, and precipitation
+- Seven-day forecast with daily high/low, condition, and precipitation
   probability.
 - Debounced location search with region/country disambiguation and keyboard
   support.
@@ -43,7 +43,7 @@ Runtime dependencies are limited to `react` and `react-dom`.
 - Free plan used for this release, with commercial use permitted.
 - Free plan limits: **1,000 records/day** and **one concurrent request**.
 - A forecast query of up to 15 days counts as one record, including hourly
-  data. This application requests five days and caches repeated requests.
+  data. This application requests seven days and caches repeated requests.
 - The API key is **server-side only** in the Pages Function. It is never part of
   the client bundle.
 - Attribution: “Weather Data Provided by Visual Crossing” with a link.
@@ -86,7 +86,7 @@ without rewriting React components.
 - `GET /api/search?q=Grand%20Falls`
   - Returns up to eight populated places, deduplicated by GeoNames ID.
 - `GET /api/forecast?lat=...&lon=...&timezone=...&name=...`
-  - Returns normalized current, hourly, and five-day forecast data.
+  - Returns normalized current, hourly, and seven-day forecast data.
   - The frontend sends display metadata so the response can be rendered on a
     cache hit; the cache key itself is based on coordinates, timezone, and the
     location-local start date.
@@ -233,7 +233,7 @@ amount instead without changing components.
   the committed dependency set; repeat the checks before major UI changes.
 - No service worker, offline mode, saved locations, geolocation, advertising, or
   Fahrenheit toggle is included in the first release.
-- The five-day window follows the selected location’s local date, not the
+- The seven-day window follows the selected location’s local date, not the
   visitor’s device timezone.
 
 ## License

@@ -1,5 +1,6 @@
 const VISUAL_CROSSING_BASE =
   'https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline';
+const FORECAST_DAYS = 7;
 
 const apiKey = process.env.VISUAL_CROSSING_API_KEY?.trim();
 const geonamesUsername = process.env.GEONAMES_USERNAME?.trim();
@@ -32,7 +33,7 @@ async function main() {
 }
 
 async function verifyVisualCrossing(place) {
-  const range = getLocalDateRange(place.timezone, new Date(), 5);
+  const range = getLocalDateRange(place.timezone, new Date(), FORECAST_DAYS);
   const elements = [
     'datetime',
     'datetimeEpoch',

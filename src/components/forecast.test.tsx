@@ -40,6 +40,7 @@ describe('forecast components', () => {
     expect(html).toContain('Feels like 6°C');
     expect(html).toContain('Next 24 hours');
     expect(html).toContain('Today');
+    expect((html.match(/class="day-row"/g) ?? [])).toHaveLength(7);
     expect(html).toContain('Weather Data Provided by');
     expect(html).toContain('GeoNames');
     expect(html).toContain('aria-hidden="true"');

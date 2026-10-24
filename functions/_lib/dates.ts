@@ -1,7 +1,9 @@
+import { FORECAST_DAYS } from '../../shared/config.ts';
+
 export function getLocalDateRange(
   timezone: string | undefined,
   now: Date,
-  days = 5,
+  days = FORECAST_DAYS,
 ): { start: string; end: string } | null {
   if (!timezone || days < 1) {
     return null;

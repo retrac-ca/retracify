@@ -1,4 +1,5 @@
 import type { ForecastResponse, Place, SearchResponse } from '../../shared/types.ts';
+import { FORECAST_DAYS } from '../../shared/config.ts';
 import { cachedJson, type CacheLike } from './cache.ts';
 import { asApiError, errorResponse, jsonResponse, methodNotAllowed } from './errors.ts';
 import { requireEnv, type Env } from './env.ts';
@@ -53,10 +54,14 @@ export async function handleForecast(
 
     const place = parseForecastPlace(request);
     const now = new Date();
-    const localRange = getLocalDateRange(place.timezone, now, 5);
+    const localRange = getLocalDateRange(
+      place.timezone,
+      now,
+      FORECAST_DAYS,
+    );
     // Exclude user-supplied names and IDs so trivial query changes cannot
     // bypass the cache and consume additional provider records. Include the
-    // local start date so the five-day window rolls over at local midnight.
+    // local start date so the forecast window rolls over at local midnight.
     const cacheKey = [
       'visualcrossing:v2:forecast',
       roundCoordinate(place.latitude).toFixed(4),

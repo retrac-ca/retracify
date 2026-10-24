@@ -10,6 +10,7 @@ import { fetchJson } from '../http.ts';
 import { ApiError } from '../errors.ts';
 import { requireEnv, type Env } from '../env.ts';
 import { getLocalDateRange } from '../dates.ts';
+import { FORECAST_DAYS } from '../../../shared/config.ts';
 import {
   isRecord,
   roundCoordinate,
@@ -81,7 +82,7 @@ export function buildForecastUrl(
 ): string {
   const latitude = roundCoordinate(place.latitude).toFixed(4);
   const longitude = roundCoordinate(place.longitude).toFixed(4);
-  const range = getLocalDateRange(place.timezone, now, 5);
+  const range = getLocalDateRange(place.timezone, now, FORECAST_DAYS);
   const path = range
     ? `${VISUAL_CROSSING_BASE}/${latitude},${longitude}/${range.start}/${range.end}`
     : `${VISUAL_CROSSING_BASE}/${latitude},${longitude}`;
@@ -253,7 +254,7 @@ export function normalizeVisualCrossing(
 
   const response = payload as RawResponse;
   const rawDays = Array.isArray(response.days)
-    ? response.days.filter(isRecord).slice(0, 5)
+    ? response.days.filter(isRecord).slice(0, FORECAST_DAYS)
     : [];
 
   if (rawDays.length === 0) {

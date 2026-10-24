@@ -1,4 +1,5 @@
 import type { Forecast } from '../../shared/types';
+import { FORECAST_DAYS } from '../../shared/config';
 import {
   formatDayDate,
   formatDayLabel,
@@ -19,7 +20,7 @@ export function DailyForecast({ forecast }: DailyForecastProps) {
     <section className="forecast-section" aria-labelledby="daily-heading">
       <div className="section-heading">
         <div>
-          <p className="eyebrow">Five-day forecast</p>
+          <p className="eyebrow">{FORECAST_DAYS}-day forecast</p>
           <h2 id="daily-heading">The days ahead</h2>
         </div>
         <p className="section-note">High / low · °C</p>
@@ -27,7 +28,7 @@ export function DailyForecast({ forecast }: DailyForecastProps) {
 
       {daily.length === 0 ? (
         <p className="inline-notice">
-          Five-day forecast data is unavailable for this location.
+          {FORECAST_DAYS}-day forecast data is unavailable for this location.
         </p>
       ) : (
         <ul className="daily-list">
