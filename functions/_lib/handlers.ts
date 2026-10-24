@@ -63,7 +63,8 @@ export async function handleForecast(
     // bypass the cache and consume additional provider records. Include the
     // local start date so the forecast window rolls over at local midnight.
     const cacheKey = [
-      'visualcrossing:v2:forecast',
+      'visualcrossing:v3:forecast',
+      FORECAST_DAYS,
       roundCoordinate(place.latitude).toFixed(4),
       roundCoordinate(place.longitude).toFixed(4),
       place.timezone ?? 'unknown',
