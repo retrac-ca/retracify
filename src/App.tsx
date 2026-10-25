@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { Place } from '../shared/types';
 import { Attribution } from './components/Attribution';
 import { CurrentWeather } from './components/CurrentWeather';
@@ -7,6 +7,7 @@ import { HourlyForecast } from './components/HourlyForecast';
 import { SearchBox } from './components/SearchBox';
 import { StatusPanel } from './components/StatusPanel';
 import { useForecast } from './hooks/useForecast';
+import { useGeolocation } from './hooks/useGeolocation';
 import { useLocationSearch } from './hooks/useLocationSearch';
 import { formatDateTime, formatTimezone } from './lib/format';
 
@@ -26,23 +27,34 @@ export default function App() {
   const [place, setPlace] = useState<Place>(DEFAULT_PLACE);
   const [query, setQuery] = useState('');
   const search = useLocationSearch(query);
-  const { forecast, status, error, isStale, refresh } = useForecast(place);
+  const { forecast, status, error, isStale, staleFromServer, refresh } =
+    useForecast(place);
+
+  const selectPlace = useCallback((nextPlace: Place) => {
+    setPlace(nextPlace);
+    setQuery('');
+  }, []);
+
+  const geolocation = useGeolocation(selectPlace);
+  const resetGeolocation = geolocation.reset;
 
   useEffect(() => {
     document.title = `${place.name} Weather | Retracify`;
   }, [place.name]);
 
-  function handleSelect(nextPlace: Place) {
-    setPlace(nextPlace);
-    setQuery('');
-  }
+  useEffect(() => {
+    // Clear a previous location error when a different place is selected.
+    resetGeolocation();
+  }, [place, resetGeolocation]);
 
   const liveMessage =
     status === 'loading'
-      ? `Loading weather for ${place.name}.`
+      ? ''
       : status === 'error'
         ? `Weather could not be loaded for ${place.name}.`
-        : `Weather updated for ${place.name}.`;
+        : isStale || staleFromServer
+          ? `Showing an older forecast for ${place.name}.`
+          : `Weather updated for ${place.name}.`;
 
   const locationMeta = [
     [place.admin1, place.country].filter(Boolean).join(', '),
@@ -81,7 +93,7 @@ export default function App() {
             results={search.results}
             status={search.status}
             error={search.error}
-            onSelect={handleSelect}
+            onSelect={selectPlace}
             onRetry={search.retry}
           />
         </div>
@@ -89,7 +101,7 @@ export default function App() {
 
       <main className="page" id="main-content">
         <p className="sr-only" aria-live="polite">
-          {status === 'success' && !error ? liveMessage : ''}
+          {liveMessage}
         </p>
 
         <section className="location-heading" aria-labelledby="location-title">
@@ -99,19 +111,47 @@ export default function App() {
           <p className="location-search-note">
             Search above to check another city or town.
           </p>
+          <div className="location-actions">
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={geolocation.request}
+              disabled={geolocation.status === 'locating'}
+              aria-busy={geolocation.status === 'locating'}
+            >
+              {geolocation.status === 'locating'
+                ? 'Finding your location…'
+                : 'Use my location'}
+            </button>
+            <p className="location-note">
+              Your browser asks for permission first. Coordinates are used only
+              to find the nearest town or city.
+            </p>
+          </div>
+          {geolocation.error && (
+            <p className="inline-notice" role="status">
+              {geolocation.error}
+            </p>
+          )}
         </section>
 
-        {isStale && error && forecast && (
+        {forecast && (isStale || staleFromServer) && (
           <div className="notice notice--warning" role="alert">
             <div>
-              <p className="notice-title">Couldn't refresh the forecast</p>
+              <p className="notice-title">
+                {isStale
+                  ? "Couldn't refresh the forecast"
+                  : 'Showing an older forecast'}
+              </p>
               <p>
-                {error.message} Showing data retrieved at{' '}
-                {formatDateTime(
-                  Math.floor(Date.parse(forecast.fetchedAt) / 1000),
-                  forecast.timezone,
-                )}{' '}
-                local time. It may be out of date.
+                {isStale
+                  ? `${
+                      error?.message ?? 'The refresh failed.'
+                    } Showing data retrieved at ${formatDateTime(
+                      Math.floor(Date.parse(forecast.fetchedAt) / 1000),
+                      forecast.timezone,
+                    )} local time. It may be out of date.`
+                  : 'The weather service is temporarily unavailable. This forecast may be out of date.'}
               </p>
             </div>
             <button type="button" className="text-button" onClick={refresh}>
@@ -160,9 +200,9 @@ export default function App() {
             Retracify Weather is free to use and does not require an account.
           </p>
           <p>
-            This release does not use analytics, advertising, or cookies. Your
-            selected coordinates are sent to this site's server and to its
-            weather and location providers to load the forecast.
+            This release does not use analytics, advertising, or cookies. Read
+            the <a href="/privacy.html">privacy policy</a> and{' '}
+            <a href="/terms.html">terms of use</a>.
           </p>
           <p>
             Weather data is provided for general information only. It may be

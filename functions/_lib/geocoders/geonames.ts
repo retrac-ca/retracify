@@ -7,7 +7,8 @@ import {
   toNumberOrNull,
 } from '../validate.ts';
 
-const GEONAMES_SEARCH_URL = 'https://secure.geonames.org/searchJSON';
+const GEONAMES_BASE = 'https://secure.geonames.org';
+const GEONAMES_SEARCH_URL = `${GEONAMES_BASE}/searchJSON`;
 
 export function buildSearchUrl(query: string, username: string): string {
   const params = new URLSearchParams({
@@ -21,6 +22,34 @@ export function buildSearchUrl(query: string, username: string): string {
   });
 
   return `${GEONAMES_SEARCH_URL}?${params.toString()}`;
+}
+
+export function buildPlaceUrl(placeId: string, username: string): string {
+  const params = new URLSearchParams({
+    geonameId: placeId,
+    style: 'MEDIUM',
+    lang: 'en',
+    username,
+  });
+
+  return `${GEONAMES_BASE}/getJSON?${params.toString()}`;
+}
+
+export function buildNearbyUrl(
+  latitude: number,
+  longitude: number,
+  username: string,
+): string {
+  const params = new URLSearchParams({
+    lat: String(latitude),
+    lng: String(longitude),
+    style: 'MEDIUM',
+    maxRows: '1',
+    lang: 'en',
+    username,
+  });
+
+  return `${GEONAMES_BASE}/findNearbyPlaceNameJSON?${params.toString()}`;
 }
 
 function getId(value: unknown): string | null {
@@ -87,36 +116,62 @@ function normalizePlace(value: unknown): Place | null {
   };
 }
 
-export function normalizeGeonamesResults(payload: unknown): Place[] {
-  if (!isRecord(payload)) {
+/**
+ * Maps GeoNames status codes that indicate an account or quota problem.
+ * Other status values are handled by each caller because their meaning is
+ * endpoint-specific (for example, a missing place record).
+ */
+function throwGeonamesError(status: unknown): void {
+  if (!isRecord(status)) {
+    return;
+  }
+
+  const value = toNumberOrNull(status.value);
+
+  if (value === 18 || value === 19 || value === 20) {
     throw new ApiError(
-      502,
-      'INVALID_RESPONSE',
-      'The location service returned an unreadable response.',
-      { retryable: false },
+      429,
+      'RATE_LIMITED',
+      'Location search is temporarily busy. Please wait a moment and try again.',
+      { retryable: true, retryAfterSeconds: 60 },
     );
   }
 
+  if (value === 10) {
+    throw new ApiError(
+      502,
+      'UPSTREAM_AUTH',
+      'Location search is not configured correctly.',
+      { retryable: false },
+    );
+  }
+}
+
+function unreadableResponse(): ApiError {
+  return new ApiError(
+    502,
+    'INVALID_RESPONSE',
+    'The location service returned an unreadable response.',
+    { retryable: false },
+  );
+}
+
+function placeNotFound(): ApiError {
+  return new ApiError(
+    404,
+    'NOT_FOUND',
+    'That location could not be found. Search for a city or town and try again.',
+    { retryable: false },
+  );
+}
+
+export function normalizeGeonamesResults(payload: unknown): Place[] {
+  if (!isRecord(payload)) {
+    throw unreadableResponse();
+  }
+
   if (isRecord(payload.status)) {
-    const value = toNumberOrNull(payload.status.value);
-
-    if (value === 18 || value === 19 || value === 20) {
-      throw new ApiError(
-        429,
-        'RATE_LIMITED',
-        'Location search is temporarily busy. Please wait a moment and try again.',
-        { retryable: true, retryAfterSeconds: 60 },
-      );
-    }
-
-    if (value === 10 || value === 11) {
-      throw new ApiError(
-        502,
-        'UPSTREAM_AUTH',
-        'Location search is not configured correctly.',
-        { retryable: false },
-      );
-    }
+    throwGeonamesError(payload.status);
 
     throw new ApiError(
       502,
@@ -151,6 +206,60 @@ export function normalizeGeonamesResults(payload: unknown): Place[] {
   return places;
 }
 
+export function normalizePlaceRecord(payload: unknown): Place {
+  if (!isRecord(payload)) {
+    throw unreadableResponse();
+  }
+
+  if (isRecord(payload.status)) {
+    throwGeonamesError(payload.status);
+    // A status without a quota/auth meaning is treated as a missing record.
+    throw placeNotFound();
+  }
+
+  const place = normalizePlace(payload);
+
+  if (!place) {
+    throw placeNotFound();
+  }
+
+  return place;
+}
+
+export function normalizeNearbyPlace(payload: unknown): Place {
+  if (!isRecord(payload)) {
+    throw unreadableResponse();
+  }
+
+  if (isRecord(payload.status)) {
+    throwGeonamesError(payload.status);
+
+    throw new ApiError(
+      502,
+      'UPSTREAM_UNAVAILABLE',
+      'Location lookup is temporarily unavailable.',
+      { retryable: true },
+    );
+  }
+
+  if (Array.isArray(payload.geonames)) {
+    for (const item of payload.geonames) {
+      const place = normalizePlace(item);
+
+      if (place) {
+        return place;
+      }
+    }
+  }
+
+  throw new ApiError(
+    404,
+    'NOT_FOUND',
+    "We couldn't find a nearby city or town. Try searching for your location instead.",
+    { retryable: false },
+  );
+}
+
 export async function fetchGeonamesSearch(
   query: string,
   username: string,
@@ -164,4 +273,36 @@ export async function fetchGeonamesSearch(
   );
 
   return normalizeGeonamesResults(payload);
+}
+
+export async function fetchPlaceById(
+  placeId: string,
+  username: string,
+): Promise<Place> {
+  const payload = await fetchJson<unknown>(buildPlaceUrl(placeId, username), {
+    timeoutMs: 8_000,
+    retries: 0,
+    notFoundMessage:
+      'That location could not be found. Search for a city or town and try again.',
+  });
+
+  return normalizePlaceRecord(payload);
+}
+
+export async function fetchNearbyPlace(
+  latitude: number,
+  longitude: number,
+  username: string,
+): Promise<Place> {
+  const payload = await fetchJson<unknown>(
+    buildNearbyUrl(latitude, longitude, username),
+    {
+      timeoutMs: 8_000,
+      retries: 0,
+      notFoundMessage:
+        "We couldn't find a nearby city or town. Try searching for your location instead.",
+    },
+  );
+
+  return normalizeNearbyPlace(payload);
 }

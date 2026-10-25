@@ -1,12 +1,14 @@
 import type {
-  Forecast,
   ForecastResponse,
   Place,
+  ReverseResponse,
   SearchResponse,
 } from '../../shared/types';
 import { ClientApiError, isApiErrorBody } from './errors';
 
-const REQUEST_TIMEOUT_MS = 20_000;
+// The forecast path can include a cached place lookup plus one provider retry,
+// so allow more time than a single upstream request.
+const REQUEST_TIMEOUT_MS = 30_000;
 
 async function requestJson<T>(url: string, signal?: AbortSignal): Promise<T> {
   const controller = new AbortController();
@@ -105,24 +107,28 @@ export async function searchPlaces(
 }
 
 export async function getForecast(
-  place: Place,
+  placeId: string,
   signal?: AbortSignal,
-): Promise<Forecast> {
-  const params = new URLSearchParams({
-    lat: String(place.latitude),
-    lon: String(place.longitude),
-    id: place.id,
-    name: place.name,
-    country: place.country,
-    countryCode: place.countryCode,
-  });
-
-  if (place.admin1) params.set('admin1', place.admin1);
-  if (place.timezone) params.set('timezone', place.timezone);
-
-  const response = await requestJson<ForecastResponse>(
+): Promise<ForecastResponse> {
+  const params = new URLSearchParams({ placeId });
+  return requestJson<ForecastResponse>(
     `/api/forecast?${params.toString()}`,
     signal,
   );
-  return response.forecast;
+}
+
+export async function reverseGeocode(
+  latitude: number,
+  longitude: number,
+  signal?: AbortSignal,
+): Promise<Place> {
+  const params = new URLSearchParams({
+    lat: String(latitude),
+    lon: String(longitude),
+  });
+  const response = await requestJson<ReverseResponse>(
+    `/api/reverse?${params.toString()}`,
+    signal,
+  );
+  return response.place;
 }

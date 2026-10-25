@@ -6,6 +6,11 @@ export interface FetchJsonOptions {
   retries?: number;
   retryDelayMs?: number;
   headers?: Record<string, string>;
+  /**
+   * When set, an HTTP 404 is reported as a typed NOT_FOUND error with this
+   * message instead of a generic upstream failure.
+   */
+  notFoundMessage?: string;
 }
 
 const DEFAULT_RETRY_DELAY_MS = 300;
@@ -109,6 +114,12 @@ export async function fetchJson<T>(
           'A weather service is temporarily unavailable. Please try again later.',
           { retryable: false },
         );
+      }
+
+      if (response.status === 404 && options.notFoundMessage) {
+        throw new ApiError(404, 'NOT_FOUND', options.notFoundMessage, {
+          retryable: false,
+        });
       }
 
       if (response.status >= 500) {

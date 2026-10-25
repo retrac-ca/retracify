@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Place } from '../../../shared/types.ts';
 import {
   buildForecastUrl,
+  fetchVisualCrossingForecast,
   mapWeatherCondition,
   normalizeVisualCrossing,
 } from './visualCrossing.ts';
@@ -48,6 +49,48 @@ describe('buildForecastUrl', () => {
     expect(url.searchParams.get('contentType')).toBe('json');
     expect(url.searchParams.get('key')).toBe('test-key');
     expect(url.searchParams.get('elements')).toContain('precipprob');
+  });
+});
+
+describe('fetchVisualCrossingForecast', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('serializes concurrent provider requests per isolate', async () => {
+    let active = 0;
+    let maxActive = 0;
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        active += 1;
+        maxActive = Math.max(maxActive, active);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        active -= 1;
+
+        return new Response(JSON.stringify(makeVisualCrossingPayload()), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }),
+    );
+
+    const results = await Promise.all([
+      fetchVisualCrossingForecast(
+        TEST_PLACE,
+        { VISUAL_CROSSING_API_KEY: 'test-key' },
+        TEST_NOW,
+      ),
+      fetchVisualCrossingForecast(
+        TEST_PLACE,
+        { VISUAL_CROSSING_API_KEY: 'test-key' },
+        TEST_NOW,
+      ),
+    ]);
+
+    expect(results).toHaveLength(2);
+    expect(maxActive).toBe(1);
   });
 });
 

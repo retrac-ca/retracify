@@ -1,4 +1,3 @@
-import type { Place } from '../../shared/types.ts';
 import { ApiError } from './errors.ts';
 
 export interface Coordinates {
@@ -90,6 +89,21 @@ export function parseCoordinates(request: Request): Coordinates {
   };
 }
 
+export function parsePlaceId(request: Request): string {
+  const value = new URL(request.url).searchParams.get('placeId')?.trim();
+
+  if (!value || !/^\d{1,10}$/.test(value)) {
+    throw new ApiError(
+      400,
+      'INVALID_PLACE',
+      'A valid place ID is required to load a forecast.',
+      { retryable: false },
+    );
+  }
+
+  return value;
+}
+
 export function toNumberOrNull(value: unknown): number | null {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     return null;
@@ -129,52 +143,4 @@ export function toNonEmptyString(value: unknown): string | null {
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function boundedParam(
-  url: URL,
-  name: string,
-  maxLength: number,
-): string | undefined {
-  const value = url.searchParams.get(name)?.trim();
-
-  if (!value || value.length > maxLength) {
-    return undefined;
-  }
-
-  return value;
-}
-
-export function parseForecastPlace(request: Request): Place {
-  const coordinates = parseCoordinates(request);
-  const url = new URL(request.url);
-  const name = boundedParam(url, 'name', 120) ?? 'Selected location';
-  const country = boundedParam(url, 'country', 80) ?? '';
-  const countryCode = boundedParam(url, 'countryCode', 3) ?? '';
-  const id =
-    boundedParam(url, 'id', 80) ??
-    `${coordinates.latitude},${coordinates.longitude}`;
-  const admin1 = boundedParam(url, 'admin1', 120);
-  const timezoneParam = boundedParam(url, 'timezone', 80);
-
-  let timezone: string | undefined = timezoneParam;
-
-  if (timezone) {
-    try {
-      new Intl.DateTimeFormat(undefined, { timeZone: timezone }).format();
-    } catch {
-      timezone = undefined;
-    }
-  }
-
-  return {
-    id,
-    name,
-    ...(admin1 ? { admin1 } : {}),
-    country,
-    countryCode,
-    latitude: coordinates.latitude,
-    longitude: coordinates.longitude,
-    ...(timezone ? { timezone } : {}),
-  };
 }

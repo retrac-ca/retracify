@@ -57,54 +57,149 @@ function cacheRequest(key: string): Request {
   return new Request(`${CACHE_ORIGIN}/${encodeURIComponent(key)}`);
 }
 
+/**
+ * In-flight loads are shared per cache instance so concurrent requests for the
+ * same key make a single upstream call. This matters because the free weather
+ * plan permits only one concurrent upstream request.
+ */
+const inflightByCache = new WeakMap<
+  CacheLike,
+  Map<string, Promise<unknown>>
+>();
+
 export interface CachedValue<T> {
   value: T;
   hit: boolean;
+  /**
+   * True when a cached value was served after the loader failed. The value may
+   * be older than the normal freshness window but is still within retention.
+   */
+  stale: boolean;
+}
+
+export interface CacheOptions {
+  /** How long a value may be served after its freshness window, on failure. */
+  staleSeconds?: number;
+}
+
+interface CacheEnvelope<T> {
+  version: 1;
+  freshUntil: number;
+  value: T;
 }
 
 /**
  * Caches normalized JSON responses. The cache key must include a version and
- * every input that affects the response.
+ * every input that affects the response. On a loader failure an expired but
+ * retained entry is served with `stale: true`.
  */
 export async function cachedJson<T>(
   cache: CacheLike | undefined,
   key: string,
   ttlSeconds: number,
   loader: () => Promise<T>,
+  options: CacheOptions = {},
 ): Promise<CachedValue<T>> {
   if (!cache) {
-    return { value: await loader(), hit: false };
+    return { value: await loader(), hit: false, stale: false };
   }
 
+  let inflight = inflightByCache.get(cache);
+
+  if (!inflight) {
+    inflight = new Map();
+    inflightByCache.set(cache, inflight);
+  }
+
+  const existing = inflight.get(key);
+
+  if (existing) {
+    return existing as Promise<CachedValue<T>>;
+  }
+
+  const promise = loadThrough(
+    cache,
+    key,
+    ttlSeconds,
+    loader,
+    options.staleSeconds ?? ttlSeconds,
+  );
+
+  inflight.set(key, promise as Promise<unknown>);
+
+  try {
+    return await promise;
+  } finally {
+    if (inflight.get(key) === promise) {
+      inflight.delete(key);
+    }
+  }
+}
+
+async function loadThrough<T>(
+  cache: CacheLike,
+  key: string,
+  ttlSeconds: number,
+  loader: () => Promise<T>,
+  staleSeconds: number,
+): Promise<CachedValue<T>> {
   const request = cacheRequest(key);
+  const retentionSeconds = Math.max(1, ttlSeconds + staleSeconds);
+  let staleValue: T | undefined;
 
   try {
     const cached = await cache.match(request);
 
     if (cached) {
       try {
-        return { value: (await cached.json()) as T, hit: true };
+        const envelope = (await cached.json()) as CacheEnvelope<T>;
+
+        if (
+          envelope &&
+          typeof envelope.freshUntil === 'number' &&
+          typeof envelope.version === 'number' &&
+          'value' in envelope
+        ) {
+          if (Date.now() < envelope.freshUntil) {
+            return { value: envelope.value, hit: true, stale: false };
+          }
+
+          staleValue = envelope.value;
+        }
       } catch {
-        // Fall through to a fresh load if the cached body is unreadable.
+        // An unreadable cache entry is treated as a miss.
       }
     }
   } catch {
-    // A cache failure must never prevent a live response.
+    // A cache read failure must never prevent a live response.
   }
-
-  const value = await loader();
-  const response = new Response(JSON.stringify(value), {
-    headers: {
-      'content-type': 'application/json; charset=utf-8',
-      'cache-control': `max-age=${ttlSeconds}`,
-    },
-  });
 
   try {
-    await cache.put(request, response.clone());
-  } catch {
-    // Best-effort cache write only.
-  }
+    const value = await loader();
+    const envelope: CacheEnvelope<T> = {
+      version: 1,
+      freshUntil: Date.now() + ttlSeconds * 1000,
+      value,
+    };
+    const response = new Response(JSON.stringify(envelope), {
+      headers: {
+        'content-type': 'application/json; charset=utf-8',
+        'cache-control': `max-age=${retentionSeconds}`,
+      },
+    });
 
-  return { value, hit: false };
+    try {
+      await cache.put(request, response.clone());
+    } catch {
+      // Best-effort cache write only.
+    }
+
+    return { value, hit: false, stale: false };
+  } catch (error) {
+    if (staleValue !== undefined) {
+      return { value: staleValue, hit: true, stale: true };
+    }
+
+    throw error;
+  }
 }

@@ -1,0 +1,120 @@
+:root {
+  color-scheme: light;
+  --bg: #eef4fa;
+  --surface: #ffffff;
+  --text: #102a43;
+  --muted: #486581;
+  --border: #d6e2ee;
+  --accent: #0b5cad;
+  --accent-strong: #084782;
+  --radius: 20px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background:
+    radial-gradient(circle at 84% -10%, #d7eaf9 0, transparent 40rem),
+    var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  line-height: 1.6;
+}
+
+a {
+  color: var(--accent);
+  text-underline-offset: 0.18em;
+}
+
+a:hover {
+  color: var(--accent-strong);
+}
+
+:focus-visible {
+  outline: 3px solid #f0b429;
+  outline-offset: 2px;
+}
+
+.legal-header,
+.legal-main,
+.legal-footer {
+  width: min(760px, 100%);
+  margin: 0 auto;
+  padding-inline: 20px;
+}
+
+.legal-header {
+  padding-top: 28px;
+}
+
+.legal-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+  font-size: 1.05rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.legal-brand svg {
+  width: 34px;
+  height: 34px;
+}
+
+.legal-main {
+  margin-top: 22px;
+  padding-block: 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 14px 40px rgba(16, 42, 67, 0.08);
+}
+
+.legal-main h1 {
+  margin: 0 0 4px;
+  font-size: clamp(1.8rem, 5vw, 2.4rem);
+  letter-spacing: -0.03em;
+}
+
+.legal-main h2 {
+  margin: 28px 0 8px;
+  font-size: 1.15rem;
+}
+
+.legal-main p,
+.legal-main li {
+  color: var(--muted);
+}
+
+.legal-main ul {
+  padding-left: 1.25rem;
+}
+
+.legal-meta {
+  margin: 0 0 8px;
+  font-size: 0.82rem;
+}
+
+.legal-footer {
+  padding-block: 24px 40px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.legal-footer nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-bottom: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto;
+  }
+}

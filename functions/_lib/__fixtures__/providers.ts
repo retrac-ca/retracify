@@ -142,3 +142,24 @@ export function makeGeonamesPayload(): Record<string, unknown> {
     ],
   };
 }
+
+export function makeGeonamesPlacePayload(): Record<string, unknown> {
+  return {
+    geonameId: 6621033,
+    name: 'Grand Falls',
+    toponymName: 'Grand Falls',
+    adminName1: 'New Brunswick',
+    countryName: 'Canada',
+    countryCode: 'CA',
+    lat: 47.0461,
+    lng: -67.7418,
+    population: 5220,
+    timezone: { timeZoneId: 'America/Moncton' },
+  };
+}
+
+export function makeGeonamesNearbyPayload(): Record<string, unknown> {
+  return {
+    geonames: [makeGeonamesPlacePayload()],
+  };
+}

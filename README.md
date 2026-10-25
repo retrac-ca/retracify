@@ -17,14 +17,18 @@ normalization. There is no database, account system, or persistent user data.
   probability.
 - Debounced location search with region/country disambiguation and keyboard
   support.
+- Opt-in **Use my location** button that resolves coordinates to the nearest
+  city or town. The browser prompt appears only after the visitor chooses it.
 - Starts on Grand Falls, New Brunswick as a demonstration location; any city or
   town can be searched.
 - Celsius, km/h, and millimetres by default.
 - Location-local dates and times, including daylight-saving transitions.
 - Loading, empty, error, rate-limit, timeout, missing-data, and refresh-failure
-  states.
+  states. When the provider is unavailable, a recently cached forecast is
+  served and clearly marked as out of date.
 - Responsive layout for narrow phones and larger screens.
-- No analytics, advertising, cookies, or browser geolocation in this release.
+- No analytics, advertising, or cookies. Browser geolocation is requested only
+  after an explicit user action and is not stored.
 
 ## Stack
 
@@ -57,6 +61,9 @@ Runtime dependencies are limited to `react` and `react-dom`.
 - Free web services, with commercial use allowed under CC BY 4.0.
 - Limits: 10,000 credits/day and 1,000/hour per username.
 - The username is server-side only.
+- Forecast requests resolve the selected place by ID, which costs one cached
+  GeoNames credit per unique place. Searches, place lookups, and reverse lookups
+  all share the budget described below.
 - Attribution: “Location data from GeoNames” with a link.
 - Terms: https://www.geonames.org/export/
 
@@ -69,11 +76,14 @@ non-commercial use and this site is intended to support advertising eventually.
 Browser
   └── React + Vite static app
         ├── GET /api/search?q=...
-        └── GET /api/forecast?lat=...&lon=...
+        ├── GET /api/forecast?placeId=...
+        ├── GET /api/reverse?lat=...&lon=...
+        └── GET /api/health
               └── Cloudflare Pages Functions
                     ├── functions/_lib/geocoders/geonames.ts
                     ├── functions/_lib/providers/visualCrossing.ts
                     ├── validation + normalization
+                    ├── per-IP rate limits + daily provider budget
                     └── Cloudflare Cache API
 ```
 
@@ -85,16 +95,33 @@ without rewriting React components.
 
 - `GET /api/search?q=Grand%20Falls`
   - Returns up to eight populated places, deduplicated by GeoNames ID.
-- `GET /api/forecast?lat=...&lon=...&timezone=...&name=...`
-  - Returns normalized current, hourly, and seven-day forecast data.
-  - The frontend sends display metadata so the response can be rendered on a
-    cache hit; the cache key itself is based on coordinates, timezone, and the
-    location-local start date.
+- `GET /api/forecast?placeId=6621033`
+  - Resolves the place ID through GeoNames, then returns normalized current,
+    hourly, and seven-day forecast data.
+  - The API accepts only numeric GeoNames IDs. Coordinates are not accepted, so
+    arbitrary coordinate pairs cannot bypass the cache and consume provider
+    records.
+  - `place` metadata in the response is server-resolved, which keeps the cached
+    forecast body identical for every visitor of the same place.
+- `GET /api/reverse?lat=47.0461&lon=-67.7418`
+  - Resolves coordinates from the opt-in location button to the nearest
+    populated place. Returns `404` when no nearby place is found.
+- `GET /api/health`
+  - Returns `{"status":"ok"}` without calling any upstream provider. Intended
+    for uptime monitoring.
 
 ### Caching and limits
 
-- Forecasts are cached for **10 minutes** per rounded coordinate/timezone.
-- Location searches are cached for **24 hours** per normalized query.
+- Forecasts are cached for **10 minutes** per place ID and location-local start
+  date.
+- Place records are cached for **7 days**; location searches for **24 hours**;
+  reverse-geocoded places for **24 hours**.
+- Concurrent cache misses for the same key share one upstream call, and
+  forecast requests are serialized per Worker isolate. This matters because the
+  free plan permits only one concurrent provider request.
+- When a refresh fails, an expired but retained forecast is served for up to one
+  day and marked `stale: true`; search and place data can be served stale for up
+  to seven days.
 - The forecast adapter retries once on a transient `429`/`5xx` with a short
   backoff and respects `Retry-After` when provided.
 - Upstream errors are mapped to user-friendly, typed API errors.
@@ -102,6 +129,37 @@ without rewriting React components.
   keeps the previous forecast but marks it clearly as stale with a last-updated
   time and retry action.
 - No polling or service worker is used.
+
+### Abuse protection
+
+The public API is unauthenticated, so the server limits both bursts and total
+provider usage:
+
+| Route | Per-IP burst limit |
+| --- | --- |
+| `/api/search` | 20 requests/minute |
+| `/api/forecast` | 30 requests/minute |
+| `/api/reverse` | 20 requests/minute |
+
+Provider usage is capped below the free-plan ceilings:
+
+| Budget | Limit |
+| --- | --- |
+| Visual Crossing forecast records | 700/day |
+| GeoNames search and place records | 4,000/day and 700/hour |
+
+Per-IP limits live in Worker memory and reset with each isolate. Provider
+budgets use a KV namespace binding named `BUDGET` when one is configured; without
+that binding they fall back to in-memory counters that are **not shared between
+isolates**. Add the binding in the Cloudflare Pages project settings for
+production use.
+
+When a budget is exhausted, the API serves a stale cached value if one exists or
+returns `503 BUDGET_EXHAUSTED` with a `Retry-After` header. A determined attacker
+rotating IPs and place IDs can still exhaust a day's free quota; the budget is a
+safety valve, not an authentication mechanism. A custom domain with Cloudflare
+rate-limiting rules, Turnstile on search, or a paid provider plan are the
+follow-up options.
 
 Cloudflare Pages Functions allow 100,000 free requests/day. Static asset
 requests are free. The provider and hosting thresholds are documented in
@@ -137,7 +195,9 @@ npm run dev
 ```
 
 The Vite dev server invokes the same server handlers used by Cloudflare Pages.
-The app is available at `http://localhost:5173`.
+The app is available at `http://localhost:5173`. Provider budgets use
+in-memory counters locally; the production KV binding is not required for
+development.
 
 Build and preview the production assets with the same API middleware:
 
@@ -160,8 +220,13 @@ npm run preview
 | `npm run verify:api` | Live provider check using `.env.local`; prints no credentials |
 
 The live verification script checks real Visual Crossing and GeoNames responses
-for Grand Falls. It is skipped with instructions when `.env.local` is absent. The
-automated test suite uses provider fixtures and does not call live services.
+for Grand Falls, including the place lookup used by the forecast route. It is
+skipped with instructions when `.env.local` is absent. The automated test suite
+uses provider fixtures and does not call live services.
+
+Continuous integration runs `npm run check` and `npm run build` for pushes to
+`main` and for pull requests (`.github/workflows/ci.yml`). Dependabot checks npm
+and GitHub Actions dependencies weekly.
 
 ## Deployment — Cloudflare Pages
 
@@ -177,13 +242,31 @@ Cloudflare Pages process:
 4. Add encrypted environment variables in the Pages project:
    - `VISUAL_CROSSING_API_KEY`
    - `GEONAMES_USERNAME`
-5. Deploy. Cloudflare serves the static assets and automatically deploys the
+5. Add a KV namespace binding named `BUDGET` in **Settings → Bindings**. This
+   makes daily and hourly provider budgets shared across isolates. Without it the
+   app still runs, but budgets are enforced per isolate in memory.
+6. Deploy. Cloudflare serves the static assets and automatically deploys the
    `functions/` directory as Pages Functions.
 
 No backend, database, or API key in client-side code is required. HTTPS is
 provided by Cloudflare. The `public/_headers` file adds a restrictive CSP and
 security headers to static responses. If advertising or third-party scripts are
 added later, the CSP and consent requirements will need to be revisited.
+
+### Monitoring and release checklist
+
+- Point an external uptime monitor at `/api/health` on a five-minute interval.
+  The endpoint does not call any provider.
+- Watch the Visual Crossing and GeoNames usage dashboards. The budgets above
+  keep normal traffic below the free ceilings, but a provider outage can still
+  consume budget because reservations happen before each request.
+- Before tagging a release:
+  - `npm run check` and `npm run build` pass.
+  - `npm run verify:api` passes with the release credentials.
+  - `VISUAL_CROSSING_API_KEY`, `GEONAMES_USERNAME`, and the `BUDGET` KV binding
+    are configured in the Pages project.
+  - `/api/health` is monitored and the privacy and terms pages are reachable.
+  - `SITE_URL` in `shared/config.ts` matches the deployed origin.
 
 ### Custom domain
 
@@ -197,15 +280,23 @@ repository.
 - Environment variables are not prefixed with `VITE_`, so Vite does not expose
   them to client code.
 - API routes are same-origin; no permissive CORS header is set.
-- Query lengths, coordinates, and timezones are validated server-side.
+- Place IDs, query lengths, and coordinates are validated server-side. Place
+  metadata and timezones are resolved from GeoNames rather than trusted from the
+  request.
+- Client IP addresses are used in memory for short-lived rate limiting. They are
+  not written to KV, included in API responses, or sent directly to Visual
+  Crossing or GeoNames; the Function makes the upstream request.
 - Error responses do not include upstream URLs, API keys, or stack traces.
-- User IP addresses are not sent directly to Visual Crossing or GeoNames; the
-  Function makes the upstream request.
-- No analytics, ad scripts, cookies, local storage, or browser geolocation are
-  used in this release.
-- The footer includes a weather-data disclaimer. The data is not intended as the
-  sole basis for safety-critical decisions; consult official meteorological
-  services for warnings.
+- Browser geolocation is permitted only for this origin
+  (`geolocation=(self)`), and the browser prompt appears only after the visitor
+  presses **Use my location**. Coordinates are not linked to an IP address or
+  stored in a user profile.
+- No analytics, ad scripts, cookies, or local storage are used in this release.
+- `public/privacy.html` and `public/terms.html` describe data flows, retention,
+  and the general-information limitation. The footer links to both, and includes
+  a weather-data disclaimer. The data is not intended as the sole basis for
+  safety-critical decisions; consult official meteorological services for
+  warnings.
 
 ## Provider abstraction
 
@@ -218,21 +309,37 @@ To switch providers:
 4. Update attribution in the returned `Forecast` object and the README.
 5. Re-run `npm run check` and the live verification.
 
+The forecast route resolves a GeoNames place ID before calling the weather
+provider, so a replacement geocoder must support search, place-by-ID, and
+nearby-place lookup. The weather adapter receives a server-resolved `Place`
+(latitude, longitude, timezone) and never request-supplied display metadata.
+
 The current contract already supports optional precipitation probability and
 precipitation amount, so a provider without probability can render precipitation
 amount instead without changing components.
 
 ## Known limitations
 
-- Visual Crossing Free permits only one concurrent upstream request; sustained
-  bursts can return `429` and display the rate-limit state.
-- The free plan has a 1,000-record daily ceiling.
-- GeoNames limits automated searches to 10,000 credits/day per username.
+- Visual Crossing Free permits only one concurrent upstream request globally.
+  Forecast calls are serialized within a Worker isolate and retried once, but
+  separate isolates can still overlap and return `429`.
+- The free plan has a 1,000-record daily ceiling, which is why the app stops at
+  700 records/day and may serve stale data instead.
+- GeoNames limits automated requests to 1,000/hour and 10,000/day per username.
+- `*.pages.dev` does not allow configurable WAF or rate-limiting rules. The
+  in-Function limits are best-effort; a custom domain with Cloudflare rules is
+  the planned follow-up.
+- Without a `BUDGET` KV binding, provider budgets reset with each Worker isolate
+  and are not globally enforced.
+- Rate limiting uses client IP addresses, so visitors behind a shared NAT or
+  corporate proxy share a limit.
+- Reverse geocoding returns the nearest populated place. Very remote or ocean
+  locations may show "no nearby place" and require a manual search.
 - Responsive and keyboard checks were run with Playwright at 320, 768, and
   1440 px, including axe-core WCAG 2.1 A/AA scans. Browser tooling is not part of
   the committed dependency set; repeat the checks before major UI changes.
-- No service worker, offline mode, saved locations, geolocation, advertising, or
-  Fahrenheit toggle is included in the first release.
+- No service worker, offline mode, saved locations, advertising, or Fahrenheit
+  toggle is included in the first release.
 - The seven-day window follows the selected location’s local date, not the
   visitor’s device timezone.
 

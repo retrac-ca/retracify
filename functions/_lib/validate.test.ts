@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   parseCoordinates,
-  parseForecastPlace,
+  parsePlaceId,
   parseSearchQuery,
 } from './validate.ts';
 import { ApiError } from './errors.ts';
@@ -54,7 +54,7 @@ describe('parseSearchQuery', () => {
 describe('parseCoordinates', () => {
   it('rounds coordinates to four decimals', () => {
     const request = new Request(
-      'https://example.com/api/forecast?lat=47.04609&lon=-67.74179',
+      'https://example.com/api/reverse?lat=47.04609&lon=-67.74179',
     );
     expect(parseCoordinates(request)).toEqual({
       latitude: 47.0461,
@@ -65,51 +65,74 @@ describe('parseCoordinates', () => {
   it('rejects missing and out-of-range coordinates', () => {
     expectApiError(
       () =>
-        parseCoordinates(new Request('https://example.com/api/forecast')),
+        parseCoordinates(new Request('https://example.com/api/reverse')),
       'INVALID_COORDINATES',
     );
     expectApiError(
       () =>
         parseCoordinates(
-          new Request('https://example.com/api/forecast?lat=91&lon=0'),
+          new Request('https://example.com/api/reverse?lat=91&lon=0'),
         ),
       'INVALID_COORDINATES',
     );
     expectApiError(
       () =>
         parseCoordinates(
-          new Request('https://example.com/api/forecast?lat=0&lon=181'),
+          new Request('https://example.com/api/reverse?lat=0&lon=181'),
         ),
       'INVALID_COORDINATES',
     );
   });
 });
 
-describe('parseForecastPlace', () => {
-  it('builds a place from validated request metadata', () => {
+describe('parsePlaceId', () => {
+  it('returns a numeric place ID', () => {
     const request = new Request(
-      'https://example.com/api/forecast?lat=47.04609&lon=-67.74179&id=6621033&name=Grand%20Falls&admin1=New%20Brunswick&country=Canada&countryCode=CA&timezone=America%2FMoncton',
+      'https://example.com/api/forecast?placeId=6621033',
     );
 
-    expect(parseForecastPlace(request)).toEqual({
-      id: '6621033',
-      name: 'Grand Falls',
-      admin1: 'New Brunswick',
-      country: 'Canada',
-      countryCode: 'CA',
-      latitude: 47.0461,
-      longitude: -67.7418,
-      timezone: 'America/Moncton',
-    });
+    expect(parsePlaceId(request)).toBe('6621033');
   });
 
-  it('omits an invalid timezone rather than failing the forecast', () => {
-    const request = new Request(
-      'https://example.com/api/forecast?lat=47.0461&lon=-67.7418&timezone=Not%2FAZone',
+  it('rejects missing, non-numeric, and overlong IDs', () => {
+    expectApiError(
+      () => parsePlaceId(new Request('https://example.com/api/forecast')),
+      'INVALID_PLACE',
     );
-    const place = parseForecastPlace(request);
+    expectApiError(
+      () =>
+        parsePlaceId(
+          new Request('https://example.com/api/forecast?placeId=Grand%20Falls'),
+        ),
+      'INVALID_PLACE',
+    );
+    expectApiError(
+      () =>
+        parsePlaceId(
+          new Request('https://example.com/api/forecast?placeId=12.3'),
+        ),
+      'INVALID_PLACE',
+    );
+    expectApiError(
+      () =>
+        parsePlaceId(
+          new Request(
+            `https://example.com/api/forecast?placeId=${'1'.repeat(11)}`,
+          ),
+        ),
+      'INVALID_PLACE',
+    );
+  });
 
-    expect(place.timezone).toBeUndefined();
-    expect(place.name).toBe('Selected location');
+  it('ignores legacy coordinate parameters', () => {
+    expectApiError(
+      () =>
+        parsePlaceId(
+          new Request(
+            'https://example.com/api/forecast?lat=47.0461&lon=-67.7418',
+          ),
+        ),
+      'INVALID_PLACE',
+    );
   });
 });

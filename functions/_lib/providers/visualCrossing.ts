@@ -371,6 +371,29 @@ export async function fetchVisualCrossingForecast(
   env: Env,
   now = new Date(),
 ): Promise<Forecast> {
+  // The free provider plan permits one concurrent request. Serialize outbound
+  // forecast calls within an isolate to avoid avoidable 429 responses.
+  return serializeForecastRequest(() =>
+    fetchVisualCrossingForecastNow(place, env, now),
+  );
+}
+
+let forecastQueue: Promise<unknown> = Promise.resolve();
+
+function serializeForecastRequest<T>(task: () => Promise<T>): Promise<T> {
+  const result = forecastQueue.then(task, task);
+  forecastQueue = result.then(
+    () => undefined,
+    () => undefined,
+  );
+  return result;
+}
+
+async function fetchVisualCrossingForecastNow(
+  place: Place,
+  env: Env,
+  now: Date,
+): Promise<Forecast> {
   const apiKey = requireEnv(env, 'VISUAL_CROSSING_API_KEY');
   const url = buildForecastUrl(place, apiKey, now);
   const payload = await fetchJson<unknown>(url, {

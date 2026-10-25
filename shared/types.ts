@@ -96,14 +96,25 @@ export interface SearchResponse {
 
 export interface ForecastResponse {
   forecast: Forecast;
+  /**
+   * True when the API served a cached forecast because the provider could not
+   * be reached. The client should mark the data as potentially out of date.
+   */
+  stale?: boolean;
+}
+
+export interface ReverseResponse {
+  place: Place;
 }
 
 export type ApiErrorCode =
   | 'INVALID_QUERY'
   | 'INVALID_COORDINATES'
+  | 'INVALID_PLACE'
   | 'METHOD_NOT_ALLOWED'
   | 'CONFIGURATION'
   | 'RATE_LIMITED'
+  | 'BUDGET_EXHAUSTED'
   | 'TIMEOUT'
   | 'NETWORK'
   | 'UPSTREAM_AUTH'

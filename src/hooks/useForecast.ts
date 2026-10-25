@@ -10,6 +10,7 @@ export function useForecast(place: Place) {
   const [status, setStatus] = useState<ForecastStatus>('loading');
   const [error, setError] = useState<ClientApiError | null>(null);
   const [isStale, setIsStale] = useState(false);
+  const [staleFromServer, setStaleFromServer] = useState(false);
   const [retryToken, setRetryToken] = useState(0);
   const forecastRef = useRef<Forecast | null>(null);
 
@@ -20,27 +21,24 @@ export function useForecast(place: Place) {
     setStatus('loading');
     setError(null);
     setIsStale(false);
+    setStaleFromServer(false);
 
     if (!samePlace) {
       forecastRef.current = null;
       setForecast(null);
     }
 
-    getForecast(place, controller.signal)
+    getForecast(place.id, controller.signal)
       .then((response) => {
         if (controller.signal.aborted) {
           return;
         }
 
-        // The API cache is keyed by coordinates. Use the place the visitor
-        // actually selected rather than provider metadata from a cache hit.
-        const next: Forecast = {
-          ...response,
-          place: { ...place, timezone: response.timezone },
-        };
+        const next = response.forecast;
 
         forecastRef.current = next;
         setForecast(next);
+        setStaleFromServer(Boolean(response.stale));
         setStatus('success');
       })
       .catch((caught: unknown) => {
@@ -74,5 +72,12 @@ export function useForecast(place: Place) {
     setRetryToken((token) => token + 1);
   }, []);
 
-  return { forecast, status, error, isStale, refresh };
+  return {
+    forecast,
+    status,
+    error,
+    isStale,
+    staleFromServer,
+    refresh,
+  };
 }

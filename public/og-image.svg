@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-label="Retracify Weather">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b5cad" />
+      <stop offset="1" stop-color="#083b6d" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)" />
+  <g transform="translate(96 190)">
+    <circle cx="66" cy="54" r="46" fill="#ffd166" />
+    <g fill="#ffffff">
+      <circle cx="132" cy="128" r="44" />
+      <circle cx="184" cy="142" r="34" />
+      <circle cx="96" cy="148" r="34" />
+      <rect x="94" y="128" width="90" height="52" rx="26" />
+    </g>
+  </g>
+  <text x="330" y="285" fill="#ffffff" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="78" font-weight="700" letter-spacing="-2">
+    Retracify Weather
+  </text>
+  <text x="332" y="356" fill="#cfe6fa" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="38">
+    Current, hourly, and seven-day forecasts
+  </text>
+  <text x="332" y="424" fill="#8fc4ea" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="32">
+    Any city or town, worldwide
+  </text>
+</svg>

@@ -67,6 +67,43 @@ describe('fetchJson', () => {
     });
   });
 
+  it('maps 404 to NOT_FOUND when a message is provided', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('{}', { status: 404 })),
+    );
+
+    await expect(
+      fetchJson('https://example.com/data', {
+        timeoutMs: 1000,
+        retries: 0,
+        notFoundMessage: 'That location could not be found.',
+      }),
+    ).rejects.toMatchObject({
+      status: 404,
+      code: 'NOT_FOUND',
+      retryable: false,
+    });
+  });
+
+  it('maps 404 to an upstream failure without a NOT_FOUND message', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('{}', { status: 404 })),
+    );
+
+    await expect(
+      fetchJson('https://example.com/data', {
+        timeoutMs: 1000,
+        retries: 0,
+      }),
+    ).rejects.toMatchObject({
+      status: 502,
+      code: 'UPSTREAM_UNAVAILABLE',
+      retryable: false,
+    });
+  });
+
   it('maps upstream 5xx responses to a retryable error', async () => {
     vi.stubGlobal(
       'fetch',

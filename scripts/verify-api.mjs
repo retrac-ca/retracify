@@ -30,6 +30,7 @@ async function main() {
 
   await verifyVisualCrossing(place);
   await verifyGeonames('Grand Falls');
+  await verifyGeonamesPlace('6621033');
 }
 
 async function verifyVisualCrossing(place) {
@@ -157,6 +158,66 @@ async function verifyGeonames(query) {
   } catch (error) {
     console.error(
       `GeoNames: FAILED for "${query}" (${error instanceof Error ? error.message : 'unknown error'})`,
+    );
+    process.exitCode = 1;
+  }
+}
+
+async function verifyGeonamesPlace(placeId) {
+  const params = new URLSearchParams({
+    geonameId: placeId,
+    style: 'MEDIUM',
+    lang: 'en',
+    username: geonamesUsername,
+  });
+
+  try {
+    const response = await fetch(
+      `https://secure.geonames.org/getJSON?${params}`,
+      {
+        headers: {
+          accept: 'application/json',
+          'user-agent': 'retracify-verify/0.1',
+        },
+        signal: AbortSignal.timeout(15_000),
+      },
+    );
+
+    if (!response.ok) {
+      console.error(
+        `GeoNames place: FAILED (HTTP ${response.status}) for ${placeId}`,
+      );
+      process.exitCode = 1;
+      return;
+    }
+
+    const data = await response.json();
+
+    if (data.status) {
+      console.error(
+        `GeoNames place: FAILED (${data.status.message ?? 'unknown error'}) for ${placeId}`,
+      );
+      process.exitCode = 1;
+      return;
+    }
+
+    if (!data.geonameId) {
+      console.error(`GeoNames place: FAILED (no record) for ${placeId}`);
+      process.exitCode = 1;
+      return;
+    }
+
+    console.log(`GeoNames place: OK for ${placeId}`);
+    console.log(
+      `  ${[data.name, data.adminName1, data.countryName].filter(Boolean).join(', ')}`,
+    );
+    console.log(`  timezone: ${data.timezone?.timeZoneId ?? 'unavailable'}`);
+    console.log(
+      `  coordinates: ${data.lat !== undefined && data.lng !== undefined ? 'present' : 'missing'}`,
+    );
+  } catch (error) {
+    console.error(
+      `GeoNames place: FAILED for ${placeId} (${error instanceof Error ? error.message : 'unknown error'})`,
     );
     process.exitCode = 1;
   }
