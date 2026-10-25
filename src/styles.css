@@ -626,6 +626,38 @@ a:hover {
   list-style: none;
 }
 
+.extended-forecast {
+  margin-top: 16px;
+}
+
+.extended-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin: 0 0 6px;
+  color: var(--accent);
+  font-size: 0.73rem;
+  font-weight: 750;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.extended-heading span {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 550;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.daily-toggle {
+  display: block;
+  margin: 10px auto 0;
+  text-align: center;
+}
+
 .day-row {
   display: grid;
   grid-template-areas:

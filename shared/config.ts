@@ -1,9 +1,10 @@
 /**
- * Number of daily forecast periods requested and displayed.
+ * Number of daily forecast periods requested from the provider.
  * Visual Crossing supports up to 15 days; a request of this size still counts
- * as a single forecast record on the free plan.
+ * as a single forecast record on the free plan. The UI shows the first week by
+ * default and reveals the remaining days on demand.
  */
-export const FORECAST_DAYS = 7;
+export const FORECAST_DAYS = 14;
 
 /**
  * Public origin used for canonical URLs, Open Graph tags, the sitemap, and

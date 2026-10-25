@@ -1,7 +1,8 @@
 # Retracify Weather
 
 A lightweight, mobile-friendly weather website with current conditions, hourly
-forecasts, a seven-day forecast, and global city/town search.
+forecasts, a seven-day forecast that expands to 14 days, and global city/town
+search.
 
 The project is designed as a **static React frontend** with a small serverless
 API layer for provider credential protection, caching, and response
@@ -14,7 +15,8 @@ normalization. There is no database, account system, or persistent user data.
 - Next 24 hours of weather with temperature, condition, precipitation
   probability, and wind.
 - Seven-day forecast with daily high/low, condition, and precipitation
-  probability.
+  probability. A **Show 14-day forecast** toggle reveals the extended week,
+  which is labeled as less certain.
 - Debounced location search with region/country disambiguation and keyboard
   support.
 - Opt-in **Use my location** button that resolves coordinates to the nearest
@@ -47,7 +49,8 @@ Runtime dependencies are limited to `react` and `react-dom`.
 - Free plan used for this release, with commercial use permitted.
 - Free plan limits: **1,000 records/day** and **one concurrent request**.
 - A forecast query of up to 15 days counts as one record, including hourly
-  data. This application requests seven days and caches repeated requests.
+  data. This application requests 14 days and caches repeated requests, so the
+  extended view does not consume extra provider records.
 - The API key is **server-side only** in the Pages Function. It is never part of
   the client bundle.
 - Attribution: “Weather Data Provided by Visual Crossing” with a link.
@@ -97,7 +100,8 @@ without rewriting React components.
   - Returns up to eight populated places, deduplicated by GeoNames ID.
 - `GET /api/forecast?placeId=6621033`
   - Resolves the place ID through GeoNames, then returns normalized current,
-    hourly, and seven-day forecast data.
+    hourly, and 14-day forecast data. The UI shows the first week by default and
+    reveals the remaining days on demand.
   - The API accepts only numeric GeoNames IDs. Coordinates are not accepted, so
     arbitrary coordinate pairs cannot bypass the cache and consume provider
     records.
@@ -357,8 +361,10 @@ amount instead without changing components.
   the committed dependency set; repeat the checks before major UI changes.
 - No service worker, offline mode, saved locations, advertising, or Fahrenheit
   toggle is included in the first release.
-- The seven-day window follows the selected location’s local date, not the
+- The 14-day window follows the selected location’s local date, not the
   visitor’s device timezone.
+- Forecast accuracy generally decreases beyond seven days. Extended days are
+  clearly labeled and should be treated as guidance rather than certainty.
 
 ## License
 

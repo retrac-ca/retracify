@@ -25,7 +25,7 @@ describe('getLocalDateRange', () => {
 
     expect(range).toEqual({
       start: '2026-10-22',
-      end: '2026-10-28',
+      end: '2026-11-04',
     });
   });
 
@@ -36,13 +36,13 @@ describe('getLocalDateRange', () => {
 });
 
 describe('buildForecastUrl', () => {
-  it('requests seven local days in metric units', () => {
+  it('requests the configured local window in metric units', () => {
     const url = new URL(
       buildForecastUrl(TEST_PLACE, 'test-key', TEST_NOW),
     );
 
     expect(url.pathname).toContain(
-      '/47.0461,-67.7418/2026-10-23/2026-10-29',
+      '/47.0461,-67.7418/2026-10-23/2026-11-05',
     );
     expect(url.searchParams.get('unitGroup')).toBe('metric');
     expect(url.searchParams.get('include')).toBe('current,days,hours');

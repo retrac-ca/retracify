@@ -41,9 +41,22 @@ describe('forecast components', () => {
     expect(html).toContain('Next 24 hours');
     expect(html).toContain('Today');
     expect((html.match(/class="day-row"/g) ?? [])).toHaveLength(7);
+    expect(html).toContain('Show 14-day forecast');
     expect(html).toContain('Weather Data Provided by');
     expect(html).toContain('GeoNames');
     expect(html).toContain('aria-hidden="true"');
+  });
+
+  it('expands to the extended 14-day forecast on request', () => {
+    const forecast = makeForecast();
+    const html = renderToStaticMarkup(
+      <DailyForecast forecast={forecast} defaultExpanded />,
+    );
+
+    expect((html.match(/class="day-row"/g) ?? [])).toHaveLength(14);
+    expect(html).toContain('Next week');
+    expect(html).toContain('Less certain');
+    expect(html).toContain('Show 7-day forecast');
   });
 
   it('renders a clear fallback when current conditions are missing', () => {

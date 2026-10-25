@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { getLocalDateRange } from './dates.ts';
 
 describe('getLocalDateRange', () => {
-  it('returns a seven-day window in the location timezone', () => {
+  it('returns the requested multi-day window in the location timezone', () => {
     expect(
       getLocalDateRange(
         'America/Moncton',

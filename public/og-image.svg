@@ -19,7 +19,7 @@
     Retracify Weather
   </text>
   <text x="332" y="356" fill="#cfe6fa" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="38">
-    Current, hourly, and seven-day forecasts
+    Current, hourly, and 14-day forecasts
   </text>
   <text x="332" y="424" fill="#8fc4ea" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="32">
     Any city or town, worldwide
