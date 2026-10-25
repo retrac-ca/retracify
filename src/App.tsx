@@ -201,8 +201,8 @@ export default function App() {
           </p>
           <p>
             This release does not use analytics, advertising, or cookies. Read
-            the <a href="/privacy.html">privacy policy</a> and{' '}
-            <a href="/terms.html">terms of use</a>.
+            the <a href="/privacy">privacy policy</a> and{' '}
+            <a href="/terms">terms of use</a>.
           </p>
           <p>
             Weather data is provided for general information only. It may be
