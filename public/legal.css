@@ -1,13 +1,28 @@
 :root {
   color-scheme: light;
   --bg: #eef4fa;
+  --bg-glow: #d7eaf9;
   --surface: #ffffff;
   --text: #102a43;
   --muted: #486581;
   --border: #d6e2ee;
   --accent: #0b5cad;
   --accent-strong: #084782;
+  --shadow: 0 14px 40px rgba(16, 42, 67, 0.08);
   --radius: 20px;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0b1420;
+  --bg-glow: #12283d;
+  --surface: #14202d;
+  --text: #e6eef7;
+  --muted: #a3b7ca;
+  --border: #2a3d50;
+  --accent: #7cc0ff;
+  --accent-strong: #a8d6ff;
+  --shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
 }
 
 * {
@@ -18,7 +33,7 @@ body {
   margin: 0;
   min-width: 320px;
   background:
-    radial-gradient(circle at 84% -10%, #d7eaf9 0, transparent 40rem),
+    radial-gradient(circle at 84% -10%, var(--bg-glow) 0, transparent 40rem),
     var(--bg);
   color: var(--text);
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -72,7 +87,11 @@ a:hover {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
-  box-shadow: 0 14px 40px rgba(16, 42, 67, 0.08);
+  box-shadow: var(--shadow);
+}
+
+.legal-brand svg path {
+  fill: var(--accent);
 }
 
 .legal-main h1 {

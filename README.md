@@ -6,7 +6,8 @@ search.
 
 The project is designed as a **static React frontend** with a small serverless
 API layer for provider credential protection, caching, and response
-normalization. There is no database, account system, or persistent user data.
+normalization. There is no database or account system. The only value saved in
+the browser is the day/night theme preference.
 
 ## Features
 
@@ -28,9 +29,12 @@ normalization. There is no database, account system, or persistent user data.
 - Loading, empty, error, rate-limit, timeout, missing-data, and refresh-failure
   states. When the provider is unavailable, a recently cached forecast is
   served and clearly marked as out of date.
+- Day and night themes that follow your device setting by default, with a
+  header toggle. An explicit choice is remembered on your device.
 - Responsive layout for narrow phones and larger screens.
-- No analytics, advertising, or cookies. Browser geolocation is requested only
-  after an explicit user action and is not stored.
+- No analytics, advertising, or cookies. The only browser storage is the
+  day/night theme preference. Browser geolocation is requested only after an
+  explicit user action and is not stored.
 
 ## Stack
 
@@ -312,7 +316,9 @@ repository.
   (`geolocation=(self)`), and the browser prompt appears only after the visitor
   presses **Use my location**. Coordinates are not linked to an IP address or
   stored in a user profile.
-- No analytics, ad scripts, cookies, or local storage are used in this release.
+- No analytics, ad scripts, cookies, or tracking storage are used. The only
+  local storage value is the day/night theme preference, which never leaves the
+  browser.
 - `public/privacy.html` and `public/terms.html` describe data flows, retention,
   and the general-information limitation. The footer links to both, and includes
   a weather-data disclaimer. The data is not intended as the sole basis for

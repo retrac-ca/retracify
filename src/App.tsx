@@ -6,9 +6,11 @@ import { DailyForecast } from './components/DailyForecast';
 import { HourlyForecast } from './components/HourlyForecast';
 import { SearchBox } from './components/SearchBox';
 import { StatusPanel } from './components/StatusPanel';
+import { ThemeToggle } from './components/ThemeToggle';
 import { useForecast } from './hooks/useForecast';
 import { useGeolocation } from './hooks/useGeolocation';
 import { useLocationSearch } from './hooks/useLocationSearch';
+import { useTheme } from './hooks/useTheme';
 import { formatDateTime, formatTimezone } from './lib/format';
 
 const DEFAULT_PLACE: Place = {
@@ -26,6 +28,7 @@ const DEFAULT_PLACE: Place = {
 export default function App() {
   const [place, setPlace] = useState<Place>(DEFAULT_PLACE);
   const [query, setQuery] = useState('');
+  const { theme, toggleTheme } = useTheme();
   const search = useLocationSearch(query);
   const { forecast, status, error, isStale, staleFromServer, refresh } =
     useForecast(place);
@@ -86,6 +89,8 @@ export default function App() {
               Retracify <span className="brand-sub">Weather</span>
             </span>
           </div>
+
+          <ThemeToggle theme={theme} onToggle={toggleTheme} />
 
           <SearchBox
             query={query}
@@ -200,8 +205,9 @@ export default function App() {
             Retracify Weather is free to use and does not require an account.
           </p>
           <p>
-            This release does not use analytics, advertising, or cookies. Read
-            the <a href="/privacy">privacy policy</a> and{' '}
+            This release does not use analytics, advertising, or cookies. The
+            only preference saved in your browser is your day/night theme
+            choice. Read the <a href="/privacy">privacy policy</a> and{' '}
             <a href="/terms">terms of use</a>.
           </p>
           <p>

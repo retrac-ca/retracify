@@ -8,6 +8,7 @@ describe('App', () => {
 
     expect(html).toContain('Grand Falls');
     expect(html).toContain('Use my location');
+    expect(html).toContain('Switch to night mode');
     expect(html).toContain('href="/privacy"');
     expect(html).toContain('href="/terms"');
     expect(html).toContain('Loading weather');
