@@ -1,0 +1,9 @@
+name = "retracify"
+compatibility_date = "2026-10-24"
+pages_build_output_dir = "./dist"
+
+# Shared daily and hourly provider-budget counters. Set once via
+# `wrangler kv namespace create retracify-budget` and keep the ID below.
+[[kv_namespaces]]
+binding = "BUDGET"
+id = "f28f45f384634367a526ffc7ddfc954b"

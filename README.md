@@ -230,23 +230,40 @@ and GitHub Actions dependencies weekly.
 
 ## Deployment — Cloudflare Pages
 
-This repository does not deploy automatically. Use the following approved
-Cloudflare Pages process:
+Production is a **Direct Upload** Pages project named `retracify`, served at
+`https://retracify.pages.dev`. It is not connected to Git; deployments are made
+with Wrangler after CI passes.
 
-1. Push the repository to GitHub (after review and approval).
-2. In Cloudflare Pages, create a project connected to the repository.
-3. Use:
-   - Build command: `npm ci && npm run build`
-   - Build output directory: `dist`
-   - Node version: 22 or newer
-4. Add encrypted environment variables in the Pages project:
-   - `VISUAL_CROSSING_API_KEY`
-   - `GEONAMES_USERNAME`
-5. Add a KV namespace binding named `BUDGET` in **Settings → Bindings**. This
-   makes daily and hourly provider budgets shared across isolates. Without it the
-   app still runs, but budgets are enforced per isolate in memory.
-6. Deploy. Cloudflare serves the static assets and automatically deploys the
-   `functions/` directory as Pages Functions.
+1. Install dependencies and build:
+   ```bash
+   npm ci
+   npm run build
+   ```
+2. Confirm `wrangler.toml` matches the project:
+   - `name = "retracify"`
+   - `pages_build_output_dir = "./dist"`
+   - `[[kv_namespaces]]` binds `BUDGET` to the shared KV namespace
+3. Set the encrypted secrets once per environment. Production already has them;
+   the Preview environment needs them separately if you use preview deployments:
+   ```bash
+   npx wrangler pages secret put VISUAL_CROSSING_API_KEY --project-name retracify
+   npx wrangler pages secret put GEONAMES_USERNAME --project-name retracify
+   ```
+4. Deploy:
+   ```bash
+   npx wrangler pages deploy dist --project-name retracify --branch main
+   ```
+5. Smoke-test the production URL: `/api/health`,
+   `/api/forecast?placeId=6621033`, `/api/search?q=Grand%20Falls`,
+   `/api/reverse`, plus the privacy, terms, robots, sitemap, manifest, and icon
+   files.
+6. If a deployment regresses, use the Pages dashboard → Deployments → Rollback.
+
+`wrangler.toml` is the source of truth for Pages bindings once used. The `BUDGET`
+namespace must exist in the Cloudflare account; create it once with
+`npx wrangler kv namespace create retracify-budget` and keep its ID in the file.
+Secrets are managed separately with `wrangler pages secret` and are not stored in
+the repository.
 
 No backend, database, or API key in client-side code is required. HTTPS is
 provided by Cloudflare. The `public/_headers` file adds a restrictive CSP and
@@ -263,8 +280,8 @@ added later, the CSP and consent requirements will need to be revisited.
 - Before tagging a release:
   - `npm run check` and `npm run build` pass.
   - `npm run verify:api` passes with the release credentials.
-  - `VISUAL_CROSSING_API_KEY`, `GEONAMES_USERNAME`, and the `BUDGET` KV binding
-    are configured in the Pages project.
+  - `VISUAL_CROSSING_API_KEY` and `GEONAMES_USERNAME` are set as Pages secrets,
+    and `wrangler.toml` contains the `BUDGET` KV binding.
   - `/api/health` is monitored and the privacy and terms pages are reachable.
   - `SITE_URL` in `shared/config.ts` matches the deployed origin.
 
