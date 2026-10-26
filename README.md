@@ -44,19 +44,26 @@ the browser is the day/night theme preference.
 - Cloudflare Pages Functions for `/api/*`
 - Vitest and ESLint
 
-Runtime dependencies are limited to `react` and `react-dom`.
+Runtime dependencies are `react` and `react-dom`. The beta radar also uses
+`leaflet`, loaded lazily and only when the radar demo is opened.
 
 ## Data providers and terms
 
 ### Visual Crossing — weather
 
 - Free plan used for this release, with commercial use permitted.
-- Free plan limits: **1,000 records/day** and **one concurrent request**.
+- Forecast limits: **1,000 records/day** and **one concurrent request** for the
+  timeline API.
+- Weather Maps limits are separate: **10,000 map requests/month** on the free
+  plan. The beta radar uses this allowance, capped at 250 images/day by the app.
+  The Maps API accepted six parallel image requests in testing, unlike the
+  timeline API.
 - A forecast query of up to 15 days counts as one record, including hourly
   data. This application requests 14 days and caches repeated requests, so the
   extended view does not consume extra provider records.
 - The API key is **server-side only** in the Pages Function. It is never part of
-  the client bundle.
+  the client bundle, including radar images, which are proxied through
+  `/api/radar`.
 - Attribution: “Weather Data Provided by Visual Crossing” with a link.
 - Usage beyond the free limits requires a paid plan. Metered pricing is listed
   by Visual Crossing at `$0.0001/record`, but **no paid plan or billing is
@@ -74,6 +81,20 @@ Runtime dependencies are limited to `react` and `react-dom`.
 - Attribution: “Location data from GeoNames” with a link.
 - Terms: https://www.geonames.org/export/
 
+### OpenStreetMap — beta radar basemap
+
+- Only the beta radar card uses OpenStreetMap raster tiles. The app's normal
+  forecast pages make no OpenStreetMap requests.
+- The browser loads tiles directly from `https://tile.openstreetmap.org`, so the
+  CSP allows that origin plus `blob:` for the radar overlay images.
+- Attribution: “© OpenStreetMap contributors” with a link, shown on the radar
+  card.
+- The privacy policy discloses the direct tile requests and the standard request
+  information OpenStreetMap receives.
+- OSM tile servers are intended for low-volume use. A busier ad-supported site
+  should use a dedicated basemap provider.
+- Terms and policy: https://operations.osmfoundation.org/policies/tiles/
+
 Open-Meteo is **not** used in production because its free tier is restricted to
 non-commercial use and this site is intended to support advertising eventually.
 
@@ -85,10 +106,12 @@ Browser
         ├── GET /api/search?q=...
         ├── GET /api/forecast?placeId=...
         ├── GET /api/reverse?lat=...&lon=...
+        ├── GET /api/radar?placeId=...&mode=6h&offset=0
         └── GET /api/health
               └── Cloudflare Pages Functions
                     ├── functions/_lib/geocoders/geonames.ts
                     ├── functions/_lib/providers/visualCrossing.ts
+                    ├── functions/_lib/providers/visualCrossingMap.ts
                     ├── validation + normalization
                     ├── per-IP rate limits + daily provider budget
                     └── Cloudflare Cache API
@@ -96,7 +119,8 @@ Browser
 
 The frontend consumes a provider-neutral contract in `shared/types.ts`. Provider
 details stay inside the server adapters, so the weather provider can be replaced
-without rewriting React components.
+without rewriting React components. The beta radar card additionally loads
+OpenStreetMap raster tiles directly in the browser.
 
 ### API routes
 
@@ -114,6 +138,15 @@ without rewriting React components.
 - `GET /api/reverse?lat=47.0461&lon=-67.7418`
   - Resolves coordinates from the opt-in location button to the nearest
     populated place. Returns `404` when no nearby place is found.
+- `GET /api/radar?placeId=6621033&mode=6h&offset=0`
+  - Beta radar proxy. Validates the timeframe and frame offset, resolves the
+    place server-side, fetches the corresponding precipitation-composite image
+    from Visual Crossing, and returns it with Web Mercator bounds and its frame
+    time.
+  - The API key never reaches the browser. The response is cached at the edge;
+    past frames are retained for 24 hours and future frames for 1 hour.
+  - The browser only requests this same-origin route. OpenStreetMap tiles for
+    the basemap are the one direct third-party image request on the site.
 - `GET /api/health`
   - Returns `{"status":"ok"}` without calling any upstream provider. Intended
     for uptime monitoring.
@@ -125,8 +158,12 @@ without rewriting React components.
 - Place records are cached for **7 days**; location searches for **24 hours**;
   reverse-geocoded places for **24 hours**.
 - Concurrent cache misses for the same key share one upstream call, and
-  forecast requests are serialized per Worker isolate. This matters because the
-  free plan permits only one concurrent provider request.
+  forecast requests are serialized per Worker isolate because the timeline API
+  permits one concurrent request. Radar image requests are not serialized; the
+  Maps API accepted six parallel requests in testing, and the browser preloads
+  six frames at a time.
+- Radar images are cached per place, zoom, size, and frame time: **24 hours**
+  for past frames and **1 hour** for future frames.
 - When a refresh fails, an expired but retained forecast is served for up to one
   day and marked `stale: true`; search and place data can be served stale for up
   to seven days.
@@ -148,12 +185,14 @@ provider usage:
 | `/api/search` | 20 requests/minute |
 | `/api/forecast` | 30 requests/minute |
 | `/api/reverse` | 20 requests/minute |
+| `/api/radar` | 120 requests/minute |
 
 Provider usage is capped below the free-plan ceilings:
 
 | Budget | Limit |
 | --- | --- |
 | Visual Crossing forecast records | 700/day |
+| Visual Crossing radar/map images | 250/day and 80/hour |
 | GeoNames search and place records | 4,000/day and 700/hour |
 
 Per-IP limits live in Worker memory and reset with each isolate. Provider
@@ -206,6 +245,28 @@ The Vite dev server invokes the same server handlers used by Cloudflare Pages.
 The app is available at `http://localhost:5173`. Provider budgets use
 in-memory counters locally; the production KV binding is not required for
 development.
+
+### Radar beta
+
+The deployed site can render the experimental precipitation radar card at
+`/?radar=demo`, below the 7/14-day forecast. Add `&autoplay=1` to start the
+loop automatically. The card is not linked from the normal page while it is in
+beta.
+
+The card is marked **Beta** because the first load of a loop can take a few
+seconds; frames are cached after that. The beta uses Visual Crossing map images
+through `/api/radar`, keeps the API key server-side, and caps map usage at 250
+images per day (80 per hour). Past frames are cached for 24 hours and future
+frames for 1 hour.
+
+Map tiles are loaded directly from `https://tile.openstreetmap.org` in the
+browser. The CSP allows that origin plus `blob:` for the radar overlay images,
+and the privacy policy discloses the direct tile request. OSM tile servers are
+for low-volume use; a busier deployment should use a dedicated basemap provider.
+
+To remove the beta, remove the `?radar=demo` flag, `RadarMap` component,
+`/api/radar` route, Leaflet dependency, OSM CSP allowance, and the associated
+privacy and terms text.
 
 Build and preview the production assets with the same API middleware:
 
@@ -310,7 +371,12 @@ repository.
   request.
 - Client IP addresses are used in memory for short-lived rate limiting. They are
   not written to KV, included in API responses, or sent directly to Visual
-  Crossing or GeoNames; the Function makes the upstream request.
+  Crossing or GeoNames; the Function makes those upstream requests. The one
+  exception is the beta radar's OpenStreetMap basemap, which the browser loads
+  directly from `tile.openstreetmap.org`.
+- The beta radar's own image requests are proxied through `/api/radar`; the
+  Visual Crossing key never reaches the browser. The CSP allows the OpenStreetMap
+  tile origin plus `blob:` for those radar overlay images.
 - Error responses do not include upstream URLs, API keys, or stack traces.
 - Browser geolocation is permitted only for this origin
   (`geolocation=(self)`), and the browser prompt appears only after the visitor
@@ -347,9 +413,13 @@ amount instead without changing components.
 
 ## Known limitations
 
-- Visual Crossing Free permits only one concurrent upstream request globally.
-  Forecast calls are serialized within a Worker isolate and retried once, but
-  separate isolates can still overlap and return `429`.
+- Visual Crossing Free permits one concurrent request for the timeline
+  (forecast) API. Forecast calls are serialized within a Worker isolate and
+  retried once, but separate isolates can still overlap and return 429. The
+  Maps API accepted six parallel image requests in testing.
+- The radar is a hidden beta (`?radar=demo`), not linked from the main page. Its
+  first loop load can take a few seconds, map usage is capped at 250 images/day,
+  and its OpenStreetMap basemap is only suitable for low traffic.
 - The free plan has a 1,000-record daily ceiling, which is why the app stops at
   700 records/day and may serve stale data instead.
 - GeoNames limits automated requests to 1,000/hour and 10,000/day per username.

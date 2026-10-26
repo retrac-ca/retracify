@@ -7,6 +7,7 @@ import { FORECAST_DAYS } from '../../shared/config.ts';
 import {
   handleForecast,
   handleHealth,
+  handleRadar,
   handleReverse,
   handleSearch,
 } from './handlers.ts';
@@ -16,15 +17,19 @@ import {
   MemoryRateLimiter,
   ProviderBudget,
 } from './limits.ts';
+import { mercatorBounds } from './providers/visualCrossingMap.ts';
 import {
   makeGeonamesNearbyPayload,
   makeGeonamesPayload,
   makeGeonamesPlacePayload,
   makeVisualCrossingPayload,
+  TEST_PLACE,
 } from './__fixtures__/providers.ts';
 
 const SEARCH_URL = 'https://example.com/api/search?q=Grand%20Falls';
 const FORECAST_URL = 'https://example.com/api/forecast?placeId=6621033';
+const RADAR_URL =
+  'https://example.com/api/radar?placeId=6621033&mode=6h&offset=0';
 const REVERSE_URL =
   'https://example.com/api/reverse?lat=47.0461&lon=-67.7418';
 const ENV = {
@@ -47,6 +52,7 @@ function providerRouter(
     place?: Responder;
     nearby?: Responder;
     forecast?: Responder;
+    radar?: Responder;
   } = {},
 ) {
   return vi.fn(async (input: RequestInfo | URL) => {
@@ -70,6 +76,16 @@ function providerRouter(
     if (url.includes('/findNearbyPlaceNameJSON')) {
       return (responders.nearby ??
         (() => jsonResponse(makeGeonamesNearbyPayload())))();
+    }
+
+    if (url.includes('/map/image/precipcomposite/')) {
+      return (
+        responders.radar ??
+        (() =>
+          new Response(new Uint8Array([137, 80, 78, 71]), {
+            headers: { 'content-type': 'image/png' },
+          }))()
+      );
     }
 
     return (responders.forecast ??
@@ -336,6 +352,7 @@ describe('handleForecast', () => {
     const budget = new ProviderBudget(new MemoryBudgetStore(), {
       forecast: { daily: 1 },
       search: { daily: 100 },
+      map: { daily: 100 },
     });
     const cache = new MemoryCache();
 
@@ -358,6 +375,112 @@ describe('handleForecast', () => {
     await expect(second.json()).resolves.toMatchObject({
       error: { code: 'BUDGET_EXHAUSTED', retryable: true },
     });
+  });
+});
+
+describe('handleRadar', () => {
+  const RADAR_NOW = new Date('2026-10-23T20:30:00Z');
+
+  function radarBudget() {
+    return new ProviderBudget(new MemoryBudgetStore(), {
+      forecast: { daily: 100 },
+      search: { daily: 100 },
+      map: { daily: 100 },
+    });
+  }
+
+  it('returns an image frame with bounds and caches repeated requests', async () => {
+    const fetchMock = providerRouter();
+    vi.stubGlobal('fetch', fetchMock);
+    const cache = new MemoryCache();
+    const deps = { now: RADAR_NOW, budget: radarBudget() };
+
+    const first = await handleRadar(
+      new Request(RADAR_URL),
+      ENV,
+      cache,
+      deps,
+    );
+    expect(first.status).toBe(200);
+    expect(first.headers.get('content-type')).toBe('image/png');
+
+    const expected = mercatorBounds(
+      TEST_PLACE.latitude,
+      TEST_PLACE.longitude,
+    );
+    expect(first.headers.get('x-radar-bounds')).toBe(
+      [expected.south, expected.west, expected.north, expected.east].join(','),
+    );
+    expect(first.headers.get('x-radar-time')).toBe(
+      '2026-10-23T20:30:00.000Z',
+    );
+    expect(first.headers.get('cache-control')).toContain('max-age=86400');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    const second = await handleRadar(
+      new Request(RADAR_URL),
+      ENV,
+      cache,
+      deps,
+    );
+    expect(second.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('uses the shorter cache window for forecast frames', async () => {
+    vi.stubGlobal('fetch', providerRouter());
+
+    const response = await handleRadar(
+      new Request(
+        'https://example.com/api/radar?placeId=6621033&mode=6h&offset=360',
+      ),
+      ENV,
+      new MemoryCache(),
+      { now: RADAR_NOW, budget: radarBudget() },
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('cache-control')).toContain('max-age=3600');
+  });
+
+  it('rejects an invalid timeframe without calling a provider', async () => {
+    const fetchMock = providerRouter();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await handleRadar(
+      new Request(
+        'https://example.com/api/radar?placeId=6621033&mode=24h&offset=0',
+      ),
+      ENV,
+      new MemoryCache(),
+      { now: RADAR_NOW, budget: radarBudget() },
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: 'INVALID_QUERY' },
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects a frame offset that is not on the timeline', async () => {
+    const fetchMock = providerRouter();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await handleRadar(
+      new Request(
+        'https://example.com/api/radar?placeId=6621033&mode=6h&offset=15',
+      ),
+      ENV,
+      new MemoryCache(),
+      { now: RADAR_NOW, budget: radarBudget() },
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: 'INVALID_QUERY' },
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
 

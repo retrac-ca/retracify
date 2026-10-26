@@ -21,3 +21,12 @@ export const SITE_URL = 'https://retracify.pages.dev';
 export const DAILY_FORECAST_BUDGET = 700;
 export const DAILY_SEARCH_BUDGET = 4_000;
 export const HOURLY_SEARCH_BUDGET = 700;
+
+/**
+ * Radar images are counted as one map request each. The free plan allows
+ * 10,000 map requests per month, so the demo caps itself well below that and
+ * falls back to the latest frame when the budget runs out. Remove this with the
+ * rest of the radar demo if the feature is not kept.
+ */
+export const DAILY_MAP_BUDGET = 250;
+export const HOURLY_MAP_BUDGET = 80;

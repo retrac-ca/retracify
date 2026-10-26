@@ -99,6 +99,7 @@ describe('ProviderBudget', () => {
     const { budget, now } = makeBudget({
       forecast: { daily: 2 },
       search: { daily: 10 },
+      map: { daily: 10 },
     });
 
     await budget.reserve('forecast', now());
@@ -115,6 +116,7 @@ describe('ProviderBudget', () => {
     const { budget, clock, now } = makeBudget({
       forecast: { daily: 10 },
       search: { daily: 10, hourly: 2 },
+      map: { daily: 10 },
     });
 
     await budget.reserve('search', now());
@@ -133,6 +135,7 @@ describe('ProviderBudget', () => {
     const { budget, clock, now } = makeBudget({
       forecast: { daily: 1 },
       search: { daily: 10 },
+      map: { daily: 10 },
     });
 
     await budget.reserve('forecast', now());
@@ -149,6 +152,7 @@ describe('ProviderBudget', () => {
     const { budget, now } = makeBudget({
       forecast: { daily: 1 },
       search: { daily: 10 },
+      map: { daily: 10 },
     });
 
     await budget.reserve('forecast', now());
@@ -177,6 +181,7 @@ describe('ProviderBudget', () => {
     const budget = new ProviderBudget(store, {
       forecast: { daily: 1 },
       search: { daily: 10 },
+      map: { daily: 10 },
     });
 
     await expect(

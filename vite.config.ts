@@ -8,6 +8,7 @@ import { MemoryCache } from './functions/_lib/cache.ts';
 import {
   handleForecast,
   handleHealth,
+  handleRadar,
   handleReverse,
   handleSearch,
 } from './functions/_lib/handlers.ts';
@@ -83,6 +84,7 @@ function apiDevPlugin(env: Env): Plugin {
       url.pathname !== '/api/search' &&
       url.pathname !== '/api/forecast' &&
       url.pathname !== '/api/reverse' &&
+      url.pathname !== '/api/radar' &&
       url.pathname !== '/api/health'
     ) {
       next();
@@ -105,6 +107,9 @@ function apiDevPlugin(env: Env): Plugin {
           break;
         case '/api/reverse':
           webResponse = await handleReverse(webRequest, env, cache);
+          break;
+        case '/api/radar':
+          webResponse = await handleRadar(webRequest, env, cache);
           break;
         default:
           webResponse = handleHealth(webRequest);

@@ -1,3 +1,8 @@
+import {
+  isRadarMode,
+  radarOffsets,
+  type RadarMode,
+} from '../../shared/radar.ts';
 import { ApiError } from './errors.ts';
 
 export interface Coordinates {
@@ -96,12 +101,47 @@ export function parsePlaceId(request: Request): string {
     throw new ApiError(
       400,
       'INVALID_PLACE',
-      'A valid place ID is required to load a forecast.',
+      'A valid place ID is required.',
       { retryable: false },
     );
   }
 
   return value;
+}
+
+export function parseRadarMode(request: Request): RadarMode {
+  const value = new URL(request.url).searchParams.get('mode');
+
+  if (!isRadarMode(value)) {
+    throw new ApiError(
+      400,
+      'INVALID_QUERY',
+      'A valid radar timeframe is required.',
+      { retryable: false },
+    );
+  }
+
+  return value;
+}
+
+export function parseRadarOffset(request: Request, mode: RadarMode): number {
+  const raw = new URL(request.url).searchParams.get('offset');
+  const offset = raw === null ? Number.NaN : Number(raw);
+
+  if (
+    raw === null ||
+    !Number.isInteger(offset) ||
+    !radarOffsets(mode).includes(offset)
+  ) {
+    throw new ApiError(
+      400,
+      'INVALID_QUERY',
+      'A valid radar frame is required.',
+      { retryable: false },
+    );
+  }
+
+  return offset;
 }
 
 export function toNumberOrNull(value: unknown): number | null {

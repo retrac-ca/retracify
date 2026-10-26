@@ -58,6 +58,43 @@ function cacheRequest(key: string): Request {
 }
 
 /**
+ * Caches a binary response such as a radar image. The loader is responsible for
+ * setting `cache-control`, which determines how long the entry is retained in
+ * the in-memory cache used by local development.
+ */
+export async function cachedImage(
+  cache: CacheLike | undefined,
+  key: string,
+  loader: () => Promise<Response>,
+): Promise<Response> {
+  if (!cache) {
+    return loader();
+  }
+
+  const request = cacheRequest(key);
+
+  try {
+    const cached = await cache.match(request);
+
+    if (cached) {
+      return cached;
+    }
+  } catch {
+    // A cache read failure must never prevent a live response.
+  }
+
+  const response = await loader();
+
+  try {
+    await cache.put(request, response.clone());
+  } catch {
+    // Best-effort cache write only.
+  }
+
+  return response;
+}
+
+/**
  * In-flight loads are shared per cache instance so concurrent requests for the
  * same key make a single upstream call. This matters because the free weather
  * plan permits only one concurrent upstream request.

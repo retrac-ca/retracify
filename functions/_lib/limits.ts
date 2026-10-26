@@ -1,13 +1,15 @@
 import {
   DAILY_FORECAST_BUDGET,
+  DAILY_MAP_BUDGET,
   DAILY_SEARCH_BUDGET,
+  HOURLY_MAP_BUDGET,
   HOURLY_SEARCH_BUDGET,
 } from '../../shared/config.ts';
 import { ApiError } from './errors.ts';
 import type { Env, KvNamespace } from './env.ts';
 
-export type ApiRoute = 'search' | 'forecast' | 'reverse';
-export type BudgetKind = 'forecast' | 'search';
+export type ApiRoute = 'search' | 'forecast' | 'reverse' | 'radar';
+export type BudgetKind = 'forecast' | 'search' | 'map';
 
 export interface RateLimitRule {
   limit: number;
@@ -23,6 +25,9 @@ export const RATE_LIMITS: Record<ApiRoute, RateLimitRule> = {
   search: { limit: 20, windowMs: 60_000 },
   forecast: { limit: 30, windowMs: 60_000 },
   reverse: { limit: 20, windowMs: 60_000 },
+  // One radar loop can request around 15 cached images, and a visitor may
+  // replay or scrub several times in a minute.
+  radar: { limit: 120, windowMs: 60_000 },
 };
 
 export interface RateLimitResult {
@@ -210,6 +215,7 @@ export interface BudgetWindows {
 export const DEFAULT_BUDGET_LIMITS: Record<BudgetKind, BudgetWindows> = {
   forecast: { daily: DAILY_FORECAST_BUDGET },
   search: { daily: DAILY_SEARCH_BUDGET, hourly: HOURLY_SEARCH_BUDGET },
+  map: { daily: DAILY_MAP_BUDGET, hourly: HOURLY_MAP_BUDGET },
 };
 
 export interface Budget {
