@@ -127,6 +127,12 @@ export function RadarMap({ place, timezone }: RadarMapProps) {
         const response = await fetch(`/api/radar?${params.toString()}`);
 
         if (!response.ok) {
+          if (response.status === 503) {
+            throw new Error(
+              'Radar is temporarily unavailable. Please try again later.',
+            );
+          }
+
           let message = 'Radar is unavailable right now.';
 
           try {
@@ -417,8 +423,8 @@ export function RadarMap({ place, timezone }: RadarMapProps) {
     void prepareLoop();
   };
 
-  // Demo helper: `?radar=demo&autoplay=1` starts the loop immediately so the
-  // animation can be checked without a manual click.
+  // Testing helper: `?autoplay=1` starts the loop immediately so the animation
+  // can be checked without a manual click.
   const autoPlayRef = useRef(false);
 
   useEffect(() => {
@@ -454,27 +460,8 @@ export function RadarMap({ place, timezone }: RadarMapProps) {
   const futureLabel = `+${RADAR_MODES[mode].futureMinutes / 60}h`;
 
   return (
-    <section
-      className="forecast-section radar-section"
-      aria-labelledby="radar-heading"
-    >
-      <div className="section-heading">
-        <div>
-          <p className="eyebrow">
-            Radar <span className="beta-badge">Beta</span>
-          </p>
-          <h2 id="radar-heading">Precipitation radar</h2>
-        </div>
-        <p className="section-note">Past 2 hours · local time</p>
-      </div>
-
-      <p className="radar-beta-note">
-        <strong>Beta:</strong> This feature is still being tested. The first load
-        of a radar loop can take a few seconds; frames are cached after that.
-      </p>
-
-      <div className="card radar-card">
-        <div className="radar-map-wrap">
+    <div className="card radar-card">
+      <div className="radar-map-wrap">
           <div
             ref={mapContainerRef}
             className="radar-map"
@@ -599,7 +586,6 @@ export function RadarMap({ place, timezone }: RadarMapProps) {
             {currentFrame ? ' Showing the last loaded frame.' : ''}
           </p>
         )}
-      </div>
-    </section>
+    </div>
   );
 }

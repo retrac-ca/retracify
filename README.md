@@ -45,7 +45,7 @@ the browser is the day/night theme preference.
 - Vitest and ESLint
 
 Runtime dependencies are `react` and `react-dom`. The beta radar also uses
-`leaflet`, loaded lazily and only when the radar demo is opened.
+`leaflet`, loaded lazily when the radar card approaches the viewport.
 
 ## Data providers and terms
 
@@ -248,13 +248,13 @@ development.
 
 ### Radar beta
 
-The deployed site can render the experimental precipitation radar card at
-`/?radar=demo`, below the 7/14-day forecast. Add `&autoplay=1` to start the
-loop automatically. The card is not linked from the normal page while it is in
-beta.
+The radar card is shown to all visitors below the 7/14-day forecast. The
+heading and beta note render immediately; Leaflet and the first radar frame
+load when the card approaches the viewport. Add `?autoplay=1` to start the loop
+automatically when testing.
 
 The card is marked **Beta** because the first load of a loop can take a few
-seconds; frames are cached after that. The beta uses Visual Crossing map images
+seconds; frames are cached after that. The radar uses Visual Crossing map images
 through `/api/radar`, keeps the API key server-side, and caps map usage at 250
 images per day (80 per hour). Past frames are cached for 24 hours and future
 frames for 1 hour.
@@ -264,9 +264,9 @@ browser. The CSP allows that origin plus `blob:` for the radar overlay images,
 and the privacy policy discloses the direct tile request. OSM tile servers are
 for low-volume use; a busier deployment should use a dedicated basemap provider.
 
-To remove the beta, remove the `?radar=demo` flag, `RadarMap` component,
-`/api/radar` route, Leaflet dependency, OSM CSP allowance, and the associated
-privacy and terms text.
+To remove the beta, remove the `RadarMap` component, `/api/radar` route,
+Leaflet dependency, OSM CSP allowance, and the associated privacy and terms
+text.
 
 Build and preview the production assets with the same API middleware:
 
@@ -417,9 +417,10 @@ amount instead without changing components.
   (forecast) API. Forecast calls are serialized within a Worker isolate and
   retried once, but separate isolates can still overlap and return 429. The
   Maps API accepted six parallel image requests in testing.
-- The radar is a hidden beta (`?radar=demo`), not linked from the main page. Its
-  first loop load can take a few seconds, map usage is capped at 250 images/day,
-  and its OpenStreetMap basemap is only suitable for low traffic.
+- The radar is a beta feature shown to all visitors and loads when its card is
+  near the viewport. Its first loop load can take a few seconds, map usage is
+  capped at 250 images/day, and its OpenStreetMap basemap is only suitable for
+  low traffic.
 - The free plan has a 1,000-record daily ceiling, which is why the app stops at
   700 records/day and may serve stale data instead.
 - GeoNames limits automated requests to 1,000/hour and 10,000/day per username.

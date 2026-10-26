@@ -1,9 +1,10 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { Place } from '../shared/types';
 import { Attribution } from './components/Attribution';
 import { CurrentWeather } from './components/CurrentWeather';
 import { DailyForecast } from './components/DailyForecast';
 import { HourlyForecast } from './components/HourlyForecast';
+import { RadarSection } from './components/RadarSection';
 import { SearchBox } from './components/SearchBox';
 import { StatusPanel } from './components/StatusPanel';
 import { ThemeToggle } from './components/ThemeToggle';
@@ -24,21 +25,6 @@ const DEFAULT_PLACE: Place = {
   population: 5220,
   timezone: 'America/Moncton',
 };
-
-/**
- * Temporary demo entry point. Open `/?radar=demo` to render the radar card.
- * The lazy import keeps Leaflet out of the normal bundle and out of Node-based
- * component tests.
- */
-const RadarMap = lazy(() =>
-  import('./components/RadarMap').then((module) => ({
-    default: module.RadarMap,
-  })),
-);
-
-const SHOW_RADAR_DEMO =
-  typeof window !== 'undefined' &&
-  new URLSearchParams(window.location.search).get('radar') === 'demo';
 
 export default function App() {
   const [place, setPlace] = useState<Place>(DEFAULT_PLACE);
@@ -205,17 +191,7 @@ export default function App() {
             <CurrentWeather forecast={forecast} place={place} />
             <HourlyForecast forecast={forecast} />
             <DailyForecast forecast={forecast} />
-            {SHOW_RADAR_DEMO && (
-              <Suspense
-                fallback={
-                  <p className="inline-notice" role="status">
-                    Loading the radar demo…
-                  </p>
-                }
-              >
-                <RadarMap place={place} timezone={forecast.timezone} />
-              </Suspense>
-            )}
+            <RadarSection place={place} timezone={forecast.timezone} />
             <Attribution
               attribution={forecast.attribution}
               fetchedAt={forecast.fetchedAt}
